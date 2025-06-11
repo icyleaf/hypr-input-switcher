@@ -1,12 +1,13 @@
 package inputmethod
 
 import (
-	"fmt"
 	"os/exec"
 	"strings"
 	"time"
 
 	"hypr-input-switcher/pkg/logger"
+
+	"github.com/godbus/dbus/v5"
 )
 
 type Fcitx5 struct {
@@ -19,145 +20,159 @@ func NewFcitx5(rimeInputMethod string) *Fcitx5 {
 	}
 }
 
-func (f *Fcitx5) GetCurrentInputMethod() string {
+// IsAvailable checks if fcitx5 is available
+func (f *Fcitx5) IsAvailable() bool {
+	// Check if fcitx5-remote is available
+	if _, err := exec.LookPath("fcitx5-remote"); err != nil {
+		return false
+	}
+
+	// Try to get current input method to verify fcitx5 is running
+	cmd := exec.Command("fcitx5-remote", "-n")
+	_, err := cmd.Output()
+	return err == nil
+}
+
+// GetCurrent gets current input method via fcitx5
+func (f *Fcitx5) GetCurrent() string {
+	// Try D-Bus first
+	if currentIM := f.getCurrentViaDBus(); currentIM != "unknown" {
+		return currentIM
+	}
+
+	// Fallback to fcitx5-remote
 	cmd := exec.Command("fcitx5-remote", "-n")
 	output, err := cmd.Output()
 	if err != nil {
-		logger.Debugf("Failed to get current input method: %v", err)
 		return "unknown"
 	}
 
 	currentIM := strings.TrimSpace(string(output))
-	logger.Debugf("Current fcitx5 input method: %s", currentIM)
 
-	// If it's rime, try to get current schema
+	// If it's rime, return the specific identifier
 	if currentIM == f.rimeInputMethod {
-		return f.getCurrentRimeSchema()
+		return "rime"
 	}
 
-	// If it's keyboard-us or similar, return english
+	return "english"
+}
+
+// getCurrentViaDBus gets current input method via D-Bus
+func (f *Fcitx5) getCurrentViaDBus() string {
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		logger.Debugf("Failed to connect to session bus: %v", err)
+		return "unknown"
+	}
+	defer conn.Close()
+
+	obj := conn.Object("org.fcitx.Fcitx5", "/controller")
+	var currentIM string
+
+	err = obj.Call("org.fcitx.Fcitx.Controller1.CurrentInputMethod", 0).Store(&currentIM)
+	if err != nil {
+		logger.Debugf("Failed to get current input method via D-Bus: %v", err)
+		return "unknown"
+	}
+
+	logger.Debugf("Current input method via D-Bus: %s", currentIM)
+
+	// If it's rime, return rime identifier
+	if currentIM == f.rimeInputMethod {
+		return "rime"
+	}
+
 	if strings.Contains(currentIM, "keyboard") {
 		return "english"
 	}
 
-	return "english" // Default fallback
+	return "english"
 }
 
-func (f *Fcitx5) getCurrentRimeSchema() string {
-	// Try using rime_api first
-	cmd := exec.Command("rime_api", "get_current_schema")
-	if output, err := cmd.Output(); err == nil {
-		schema := strings.TrimSpace(string(output))
-		logger.Debugf("Current rime schema: %s", schema)
-		return f.mapSchemaToInputMethod(schema)
+// SwitchToEnglish switches to English input method
+func (f *Fcitx5) SwitchToEnglish() error {
+	// Try D-Bus first
+	if err := f.switchToEnglishViaDBus(); err == nil {
+		return nil
 	}
 
-	// If rime_api is not available, we can't determine the exact schema
-	logger.Debug("rime_api not available, returning default")
-	return "chinese" // Default assumption
-}
-
-func (f *Fcitx5) mapSchemaToInputMethod(schema string) string {
-	// This mapping should be configurable, but for now hardcode some common ones
-	schemaMap := map[string]string{
-		"rime_frost":    "chinese",
-		"luna_pinyin":   "chinese",
-		"double_pinyin": "chinese",
-		"jaroomaji":     "japanese",
-		"hiragana":      "japanese",
-	}
-
-	if inputMethod, exists := schemaMap[schema]; exists {
-		return inputMethod
-	}
-
-	// Default fallback based on schema name patterns
-	if strings.Contains(strings.ToLower(schema), "japan") ||
-		strings.Contains(strings.ToLower(schema), "hiragana") ||
-		strings.Contains(strings.ToLower(schema), "katakana") {
-		return "japanese"
-	}
-
-	if strings.Contains(strings.ToLower(schema), "chin") ||
-		strings.Contains(strings.ToLower(schema), "pinyin") {
-		return "chinese"
-	}
-
-	return "chinese" // Default fallback
-}
-
-func (f *Fcitx5) SwitchInputMethod(targetMethod string) error {
-	logger.Infof("Switching to input method: %s", targetMethod)
-
-	if targetMethod == "english" {
-		return f.switchToEnglish()
-	}
-
-	return f.switchToRime(targetMethod)
-}
-
-func (f *Fcitx5) switchToEnglish() error {
-	logger.Debug("Switching to English input method")
+	// Fallback to fcitx5-remote
+	logger.Debug("Using fcitx5-remote fallback for English switch")
 	cmd := exec.Command("fcitx5-remote", "-c")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to switch to English: %w", err)
+	return cmd.Run()
+}
+
+// switchToEnglishViaDBus switches to English via D-Bus
+func (f *Fcitx5) switchToEnglishViaDBus() error {
+	logger.Debug("Switching to English input method via D-Bus")
+
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		return err
 	}
+	defer conn.Close()
+
+	obj := conn.Object("org.fcitx.Fcitx5", "/controller")
+	call := obj.Call("org.fcitx.Fcitx.Controller1.Deactivate", 0)
+	if call.Err != nil {
+		return call.Err
+	}
+
+	logger.Info("Successfully switched to English via D-Bus")
 	return nil
 }
 
-func (f *Fcitx5) switchToRime(targetMethod string) error {
-	logger.Debugf("Switching to Rime input method for: %s", targetMethod)
+// SwitchToRime switches to Rime input method
+func (f *Fcitx5) SwitchToRime() error {
+	// Try D-Bus first
+	if err := f.switchToRimeViaDBus(); err == nil {
+		return nil
+	}
 
-	// First activate input method
+	// Fallback to fcitx5-remote
+	return f.switchToRimeFallback()
+}
+
+// switchToRimeViaDBus switches to Rime via D-Bus
+func (f *Fcitx5) switchToRimeViaDBus() error {
+	logger.Debug("Switching to Rime input method via D-Bus")
+
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	// Step 1: Activate input method
+	obj := conn.Object("org.fcitx.Fcitx5", "/controller")
+	call := obj.Call("org.fcitx.Fcitx.Controller1.Activate", 0)
+	if call.Err != nil {
+		return call.Err
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Step 2: Switch to rime input method
+	call = obj.Call("org.fcitx.Fcitx.Controller1.SetCurrentIM", 0, f.rimeInputMethod)
+	if call.Err != nil {
+		return call.Err
+	}
+
+	logger.Info("Successfully switched to Rime via D-Bus")
+	return nil
+}
+
+// switchToRimeFallback switches to Rime using fallback method
+func (f *Fcitx5) switchToRimeFallback() error {
+	logger.Debug("Using fcitx5-remote fallback method for Rime")
+
 	cmd := exec.Command("fcitx5-remote", "-o")
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to activate input method: %w", err)
+		return err
 	}
 
 	time.Sleep(100 * time.Millisecond)
 
-	// Switch to rime input method
 	cmd = exec.Command("fcitx5-remote", "-s", f.rimeInputMethod)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to switch to rime: %w", err)
-	}
-
-	time.Sleep(100 * time.Millisecond)
-
-	// Switch rime schema
-	return f.switchRimeSchema(targetMethod)
-}
-
-func (f *Fcitx5) switchRimeSchema(targetMethod string) error {
-	// This should use the schema mapping from config
-	// For now, use some defaults
-	schemaMap := map[string]string{
-		"chinese":  "rime_frost",
-		"japanese": "jaroomaji",
-	}
-
-	schema, exists := schemaMap[targetMethod]
-	if !exists {
-		logger.Warningf("No schema mapping for method: %s", targetMethod)
-		return nil // Don't fail, just keep current schema
-	}
-
-	logger.Debugf("Switching Rime schema to: %s", schema)
-
-	// Try using rime_api to switch schema
-	cmd := exec.Command("rime_api", "select_schema", schema)
-	if err := cmd.Run(); err != nil {
-		logger.Warningf("Failed to switch rime schema via rime_api: %v", err)
-		// Could try other methods here like writing to rime config files
-		return nil // Don't fail the whole operation
-	}
-
-	logger.Infof("Successfully switched rime schema to: %s", schema)
-	return nil
-}
-
-func (f *Fcitx5) IsAvailable() bool {
-	// Check if fcitx5-remote is available
-	_, err := exec.LookPath("fcitx5-remote")
-	return err == nil
+	return cmd.Run()
 }

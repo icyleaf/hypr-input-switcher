@@ -26,6 +26,7 @@ type Application struct {
 	currentIM     string
 	switcher      *inputmethod.Switcher
 	notifier      *notification.Notifier
+	watchConfig   bool
 }
 
 // NewApplication creates a new application instance
@@ -34,9 +35,11 @@ func NewApplication() *Application {
 }
 
 // Run starts the application
-func (app *Application) Run() error {
-	// Load configuration
-	configManager, err := config.NewManager("")
+func (app *Application) Run(configPath string, watchConfig bool) error {
+	app.watchConfig = watchConfig
+
+	// Load configuration with specified path
+	configManager, err := config.NewManager(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to create config manager: %w", err)
 	}
@@ -51,8 +54,23 @@ func (app *Application) Run() error {
 	app.switcher = inputmethod.NewSwitcher(cfg)
 	app.notifier = notification.NewNotifier(cfg)
 
+	// Register config change callback
+	app.configManager.AddCallback(app.onConfigChanged)
+
 	logger.Info("Starting Hyprland input method switcher...")
-	logger.Infof("Config loaded from: %s", "~/.config/hypr-input-switcher/config.json")
+
+	// Show which config file is being used
+	logger.Infof("Using config file: %s", app.configManager.GetConfigPath())
+
+	// Start config file watching if enabled
+	if watchConfig {
+		if err := app.configManager.StartWatching(); err != nil {
+			logger.Errorf("Failed to start config watching: %v", err)
+			// Continue without watching
+		} else {
+			logger.Info("Config file watching enabled")
+		}
+	}
 
 	// Set up signal handling
 	ctx, cancel := context.WithCancel(context.Background())
@@ -64,11 +82,36 @@ func (app *Application) Run() error {
 	go func() {
 		<-sigChan
 		logger.Info("Shutting down...")
+
+		// Stop config watching
+		if app.watchConfig {
+			app.configManager.StopWatching()
+		}
+
 		cancel()
 	}()
 
 	// Start monitoring
 	return app.monitorAndSwitch(ctx)
+}
+
+// onConfigChanged handles configuration changes
+func (app *Application) onConfigChanged(newConfig *config.Config) {
+	logger.Info("Applying new configuration...")
+
+	// Update config
+	app.config = newConfig
+
+	// Recreate switcher with new config
+	app.switcher = inputmethod.NewSwitcher(newConfig)
+
+	// Recreate notifier with new config
+	app.notifier = notification.NewNotifier(newConfig)
+
+	// Reset current client to force re-evaluation
+	app.currentClient = ""
+
+	logger.Info("Configuration applied successfully")
 }
 
 // getCurrentClient gets current active window information
@@ -89,15 +132,18 @@ func (app *Application) getCurrentClient() (*config.WindowInfo, error) {
 
 // getTargetInputMethod determines target input method based on client information
 func (app *Application) getTargetInputMethod(clientInfo *config.WindowInfo) string {
+	// Get current config (thread-safe)
+	currentConfig := app.configManager.GetConfig()
+
 	if clientInfo == nil {
-		return app.config.DefaultIM
+		return currentConfig.DefaultInputMethod
 	}
 
 	className := clientInfo.Class
 	title := clientInfo.Title
 
 	// Check client rules
-	for _, rule := range app.config.ClientRules {
+	for _, rule := range currentConfig.ClientRules {
 		// Match class (required)
 		if rule.Class == "" || !app.matchPattern(rule.Class, className) {
 			continue
@@ -114,7 +160,7 @@ func (app *Application) getTargetInputMethod(clientInfo *config.WindowInfo) stri
 		}
 	}
 
-	return app.config.DefaultIM
+	return currentConfig.DefaultInputMethod
 }
 
 // matchPattern matches pattern, supporting regex and string matching
@@ -172,8 +218,9 @@ func (app *Application) monitorAndSwitch(ctx context.Context) error {
 					} else {
 						logger.Infof("Switched input method to: %s", targetIM)
 
-						// Show notification
-						if app.config.Notifications.ShowOnSwitch {
+						// Show notification (use current config)
+						currentConfig := app.configManager.GetConfig()
+						if currentConfig.Notifications.ShowOnSwitch {
 							app.notifier.ShowInputMethodSwitch(targetIM, clientInfo)
 						}
 					}

@@ -1,7 +1,8 @@
 package logger
 
 import (
-	"io"
+	"os"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -10,18 +11,36 @@ var log *logrus.Logger
 
 func init() {
 	log = logrus.New()
+	log.SetOutput(os.Stdout)
+	log.SetLevel(logrus.InfoLevel)
 	log.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp: true,
 	})
-	log.SetLevel(logrus.InfoLevel)
 }
 
-func SetOutput(output io.Writer) {
+func SetLevel(level string) {
+	switch strings.ToLower(level) {
+	case "debug":
+		log.SetLevel(logrus.DebugLevel)
+	case "info":
+		log.SetLevel(logrus.InfoLevel)
+	case "warning", "warn":
+		log.SetLevel(logrus.WarnLevel)
+	case "error":
+		log.SetLevel(logrus.ErrorLevel)
+	}
+}
+
+func SetOutput(output *os.File) {
 	log.SetOutput(output)
 }
 
-func SetLevel(level logrus.Level) {
-	log.SetLevel(level)
+func Debug(args ...interface{}) {
+	log.Debug(args...)
+}
+
+func Debugf(format string, args ...interface{}) {
+	log.Debugf(format, args...)
 }
 
 func Info(args ...interface{}) {
@@ -46,20 +65,4 @@ func Error(args ...interface{}) {
 
 func Errorf(format string, args ...interface{}) {
 	log.Errorf(format, args...)
-}
-
-func Debug(args ...interface{}) {
-	log.Debug(args...)
-}
-
-func Debugf(format string, args ...interface{}) {
-	log.Debugf(format, args...)
-}
-
-func Fatal(args ...interface{}) {
-	log.Fatal(args...)
-}
-
-func Fatalf(format string, args ...interface{}) {
-	log.Fatalf(format, args...)
 }

@@ -1,0 +1,119 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+
+# Build artifacts
+/build/
+/dist/
+/bin/
+hypr-input-switcher
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Log files
+*.log
+*.log.*
+logs/
+log/
+
+# Configuration files that might contain sensitive data
+# (uncomment if you have sensitive configs)
+# config.yaml
+# *.env
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
+
+# Coverage reports
+coverage.txt
+coverage.html
+coverage.out
+
+# Air live reload tool
+.air.toml
+tmp/
+
+# Go module proxy cache
+GOPROXY=
+GOSUMDB=
+
+# Local development files
+.env.local
+.env.development
+.env.test
+
+# Debug files
+debug
+debug.test
+__debug_bin
+
+# Profiling files
+*.prof
+*.pprof
+
+# System-specific files
+.fseventsd
+.DocumentRevisions-V100
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDouble
+.LSOverride
+
+# Vim
+*.swp
+*.swo
+Session.vim
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Test coverage
+profile.out
+c.out
+
+# Goreleaser
+dist/

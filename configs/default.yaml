@@ -9,44 +9,21 @@ client_rules:
     title: ""
     input_method: chinese
   - class: google-chrome
-    title: ""
-    input_method: japanese
+    input_method: chinese
   - class: chromium
-    title: ""
     input_method: chinese
   - class: wechat
-    title: ""
     input_method: chinese
   - class: code
-    title: ""
     input_method: english
-  - class: vim
-    title: ""
-    input_method: english
-  - class: nvim
-    title: ""
-    input_method: english
-  - class: terminal
-    title: ""
+  - class: "n(?)vim"
     input_method: english
   - class: kitty
-    title: ""
     input_method: english
-  - class: alacritty
-    title: ""
+  - class: org.wezfurlong.wezterm
     input_method: english
-  - class: wezterm
-    title: ""
-    input_method: english
-  - class: obsidian
-    title: ""
+  - class: "^(org.telegram.desktop)$"
     input_method: chinese
-  - class: typora
-    title: ""
-    input_method: chinese
-  - class: anki
-    title: ""
-    input_method: japanese
 default_input_method: english
 fcitx5:
   enabled: true
@@ -59,11 +36,29 @@ notifications:
   duration: 2000
   show_on_switch: true
   show_app_name: true
+  # Notification method configuration
+  methods:
+    - notify-send    # libnotify (GNOME, KDE, etc.)
+    - hyprctl        # Hyprland native notifications
+    - dunstify       # Dunst notification daemon
+    - swaync-client  # Sway notification center
+    - mako           # Mako (Sway/Wayland)
+  # Optional: force specific method
+  force_method: ""   # Leave empty for auto-detection based on methods order
+  # Optional: disable specific methods
+  disabled_methods: []
 display_names:
   english: English
   chinese: 中文
   japanese: 日本語
+
 icons:
-  english: input-keyboard
-  chinese: input-method
-  japanese: input-method
+  # Style: Flag emojis
+  english: "🇺🇸"   # US flag
+  chinese: "🇨🇳"   # Chinese flag
+  japanese: "🇯🇵"  # Japanese flag
+
+  # Alternative style: Letter symbols
+  # english: "A"     # Simple letter
+  # chinese: "中"    # Chinese character
+  # japanese: "あ"   # Hiragana character

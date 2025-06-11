@@ -14,14 +14,12 @@ type OldConfig struct {
 	Version       int                    `yaml:"version"`
 	ClientRules   map[string]string      `yaml:"client_rules"`
 	Notifications map[string]interface{} `yaml:"notifications"`
-	// Add other fields as necessary
 }
 
 type NewConfig struct {
 	Version       int                    `yaml:"version"`
 	ClientRules   []ClientRule           `yaml:"client_rules"`
 	Notifications map[string]interface{} `yaml:"notifications"`
-	// Add other fields as necessary
 }
 
 func MigrateConfig(oldConfigPath string, newConfigPath string) error {

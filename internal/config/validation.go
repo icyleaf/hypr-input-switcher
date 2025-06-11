@@ -2,7 +2,6 @@ package config
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 
 	"gopkg.in/yaml.v2"
@@ -13,7 +12,7 @@ func LoadConfig(filePath string) (*Config, error) {
 		return nil, errors.New("configuration file does not exist")
 	}
 
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}

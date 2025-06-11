@@ -1,290 +1,296 @@
 package config
 
 import (
-	"bufio"
-	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
-	"strings"
+	"sync"
 
 	"hypr-input-switcher/pkg/logger"
+
+	"github.com/fsnotify/fsnotify"
 )
 
-const CurrentConfigVersion = 2
-
-// Manager handles configuration loading and migration
 type Manager struct {
 	configPath string
 	config     *Config
+	mutex      sync.RWMutex
+	watcher    *fsnotify.Watcher
+	callbacks  []func(*Config)
 }
 
-// NewManager creates a new configuration manager
 func NewManager(configPath string) (*Manager, error) {
+	// If no config path provided, use default
 	if configPath == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get home directory: %w", err)
-		}
-		configPath = filepath.Join(homeDir, ".config", "hypr-input-switcher", "config.json")
+		configPath = getDefaultConfigPath()
 	}
+
+	// Expand environment variables in the path
+	configPath = os.ExpandEnv(configPath)
+
+	// Convert to absolute path
+	absPath, err := filepath.Abs(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute path for config: %w", err)
+	}
+	configPath = absPath
+
+	logger.Debugf("Config manager initialized with path: %s", configPath)
 
 	return &Manager{
 		configPath: configPath,
+		callbacks:  make([]func(*Config), 0),
 	}, nil
 }
 
-// Load loads the configuration file
+// GetConfigPath returns the current config file path
+func (m *Manager) GetConfigPath() string {
+	return m.configPath
+}
+
 func (m *Manager) Load() (*Config, error) {
+	// Check if config file exists
 	if _, err := os.Stat(m.configPath); os.IsNotExist(err) {
-		logger.Info("Config file not found, creating default config")
+		logger.Infof("Config file not found at %s, creating default config", m.configPath)
 		if err := m.createDefaultConfig(); err != nil {
 			return nil, fmt.Errorf("failed to create default config: %w", err)
 		}
-		m.config = getDefaultConfig()
-		return m.config, nil
 	}
 
-	data, err := os.ReadFile(m.configPath)
+	config, err := LoadConfig(m.configPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+		return nil, err
 	}
 
-	var config Config
-	if err := json.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse config file: %w", err)
-	}
+	m.mutex.Lock()
+	m.config = config
+	m.mutex.Unlock()
 
-	// Check version compatibility
-	if !m.checkConfigVersion(&config) {
-		config = *getDefaultConfig()
-	}
-
-	m.config = &config
-	return m.config, nil
+	logger.Infof("Configuration loaded from: %s", m.configPath)
+	return config, nil
 }
 
-// GetConfig returns the loaded configuration
 func (m *Manager) GetConfig() *Config {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	return m.config
 }
 
-// checkConfigVersion checks and handles config version compatibility
-func (m *Manager) checkConfigVersion(config *Config) bool {
-	if config.Version == 0 {
-		config.Version = 1 // Default to version 1 for old configs
-	}
-
-	if config.Version == CurrentConfigVersion {
-		logger.Infof("Config version %d is current", config.Version)
-		return true
-	} else if config.Version < CurrentConfigVersion {
-		logger.Warningf("Config version %d is outdated (current: %d)", config.Version, CurrentConfigVersion)
-		return m.handleConfigUpgrade(config)
-	} else {
-		logger.Errorf("Config version %d is newer than supported (current: %d)", config.Version, CurrentConfigVersion)
-		fmt.Printf("Error: Configuration file version %d is newer than supported version %d\n", config.Version, CurrentConfigVersion)
-		fmt.Println("Please update hypr-smart-input to the latest version or downgrade your config file.")
-		return false
-	}
-}
-
-// handleConfigUpgrade handles configuration upgrades
-func (m *Manager) handleConfigUpgrade(oldConfig *Config) bool {
-	fmt.Printf("\n⚠️  Configuration Update Required\n")
-	fmt.Printf("Your config file is version %d, but current version is %d\n", oldConfig.Version, CurrentConfigVersion)
-	fmt.Printf("Config location: %s\n", m.configPath)
-
-	m.showConfigChanges(oldConfig.Version, CurrentConfigVersion)
-
-	for {
-		fmt.Print("\nChoose an option:\n")
-		fmt.Print("1. Backup old config and create new one (recommended)\n")
-		fmt.Print("2. Continue with old config (may cause issues)\n")
-		fmt.Print("3. Exit and manually update config\n")
-		fmt.Print("Enter choice (1-3): ")
-
-		reader := bufio.NewReader(os.Stdin)
-		choice, _ := reader.ReadString('\n')
-		choice = strings.TrimSpace(choice)
-
-		switch choice {
-		case "1":
-			return m.backupAndUpgradeConfig(oldConfig)
-		case "2":
-			logger.Warning("Continuing with outdated config - some features may not work")
-			return true
-		case "3":
-			fmt.Println("Please update your configuration file manually.")
-			fmt.Println("You can find example config at: https://github.com/your-repo/examples/config.json")
-			os.Exit(0)
-		default:
-			fmt.Println("Invalid choice. Please enter 1, 2, or 3.")
-		}
-	}
-}
-
-// showConfigChanges shows what changes between config versions
-func (m *Manager) showConfigChanges(oldVersion, newVersion int) {
-	fmt.Printf("\nChanges from version %d to %d:\n", oldVersion, newVersion)
-
-	if oldVersion == 1 && newVersion >= 2 {
-		fmt.Println("  • client_rules format changed from dict to list of objects")
-		fmt.Println("  • Added support for regex patterns in class and title matching")
-		fmt.Println("  • Enhanced notification system with multiple backends")
-	}
-}
-
-// backupAndUpgradeConfig backs up old config and creates new one
-func (m *Manager) backupAndUpgradeConfig(oldConfig *Config) bool {
-	// Create backup
-	backupPath := m.configPath + ".backup"
-	counter := 1
-	for {
-		if _, err := os.Stat(backupPath); os.IsNotExist(err) {
-			break
-		}
-		backupPath = fmt.Sprintf("%s.backup.%d", m.configPath, counter)
-		counter++
-	}
-
-	// Write backup
-	oldData, err := json.MarshalIndent(oldConfig, "", "  ")
-	if err != nil {
-		logger.Errorf("Failed to marshal old config: %v", err)
-		return false
-	}
-
-	if err := os.WriteFile(backupPath, oldData, 0644); err != nil {
-		logger.Errorf("Failed to create backup: %v", err)
-		return false
-	}
-
-	fmt.Printf("✅ Old config backed up to: %s\n", backupPath)
-
-	// Create new config with migrated settings
-	newConfig := getDefaultConfig()
-	m.migrateConfigSettings(oldConfig, newConfig)
-
-	// Save new config
-	newData, err := json.MarshalIndent(newConfig, "", "  ")
-	if err != nil {
-		logger.Errorf("Failed to marshal new config: %v", err)
-		return false
-	}
-
-	if err := os.WriteFile(m.configPath, newData, 0644); err != nil {
-		logger.Errorf("Failed to save new config: %v", err)
-		return false
-	}
-
-	fmt.Printf("✅ New config created at: %s\n", m.configPath)
-	fmt.Println("   Some of your old settings have been migrated.")
-	fmt.Println("   Please review and adjust the new configuration as needed.")
-
-	return true
-}
-
-// migrateConfigSettings migrates settings from old config to new config
-func (m *Manager) migrateConfigSettings(oldConfig, newConfig *Config) {
-	// Migrate basic settings
-	if oldConfig.DefaultIM != "" {
-		newConfig.DefaultIM = oldConfig.DefaultIM
-	}
-
-	if oldConfig.Fcitx5.Enabled {
-		newConfig.Fcitx5 = oldConfig.Fcitx5
-	}
-
-	if len(oldConfig.RimeSchemas) > 0 {
-		newConfig.RimeSchemas = oldConfig.RimeSchemas
-	}
-
-	if len(oldConfig.DisplayNames) > 0 {
-		newConfig.DisplayNames = oldConfig.DisplayNames
-	}
-
-	if len(oldConfig.Icons) > 0 {
-		newConfig.Icons = oldConfig.Icons
-	}
-
-	// Migrate client rules - already in correct format in our Go version
-	if len(oldConfig.ClientRules) > 0 {
-		newConfig.ClientRules = oldConfig.ClientRules
-		logger.Infof("Migrated %d client rules", len(oldConfig.ClientRules))
-	}
-}
-
-// createDefaultConfig creates a default configuration file
+// createDefaultConfig creates a default configuration file by copying from configs/default.yaml
 func (m *Manager) createDefaultConfig() error {
-	if err := os.MkdirAll(filepath.Dir(m.configPath), 0755); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
+	// Create config directory if it doesn't exist
+	configDir := filepath.Dir(m.configPath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory %s: %w", configDir, err)
 	}
 
-	defaultConfig := getDefaultConfig()
-	data, err := json.MarshalIndent(defaultConfig, "", "  ")
+	// Find the default config file
+	defaultConfigPath, err := findDefaultConfigFile()
 	if err != nil {
-		return fmt.Errorf("failed to marshal default config: %w", err)
+		return fmt.Errorf("failed to find default config file: %w", err)
 	}
 
-	if err := os.WriteFile(m.configPath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
+	// Copy the default config file
+	if err := copyFile(defaultConfigPath, m.configPath); err != nil {
+		return fmt.Errorf("failed to copy default config: %w", err)
 	}
 
-	fmt.Printf("Created default config at: %s\n", m.configPath)
+	logger.Infof("Default configuration created at: %s", m.configPath)
 	return nil
 }
 
-// getDefaultConfig returns the default configuration
-func getDefaultConfig() *Config {
-	return &Config{
-		Version:     CurrentConfigVersion,
-		Description: "Hyprland Input Method Switcher Configuration",
-		InputMethods: map[string]string{
-			"english":  "keyboard-us",
-			"chinese":  "rime",
-			"japanese": "rime",
-		},
-		ClientRules: []ClientRule{
-			{"firefox", "", "chinese"},
-			{"google-chrome", "", "japanese"},
-			{"chromium", "", "chinese"},
-			{"wechat", "", "chinese"},
-			{"code", "", "english"},
-			{"vim", "", "english"},
-			{"nvim", "", "english"},
-			{"terminal", "", "english"},
-			{"kitty", "", "english"},
-			{"alacritty", "", "english"},
-			{"wezterm", "", "english"},
-			{"obsidian", "", "chinese"},
-			{"typora", "", "chinese"},
-			{"anki", "", "japanese"},
-		},
-		DefaultIM: "english",
-		Fcitx5: Fcitx5Config{
-			Enabled:         true,
-			RimeInputMethod: "rime",
-		},
-		RimeSchemas: map[string]string{
-			"chinese":  "rime_frost",
-			"japanese": "jaroomaji",
-		},
-		Notifications: NotificationConfig{
-			Enabled:      true,
-			Duration:     2000,
-			ShowOnSwitch: true,
-			ShowAppName:  true,
-		},
-		DisplayNames: map[string]string{
-			"english":  "English",
-			"chinese":  "中文",
-			"japanese": "日本語",
-		},
-		Icons: map[string]string{
-			"english":  "input-keyboard",
-			"chinese":  "input-method",
-			"japanese": "input-method",
-		},
+// findDefaultConfigFile finds the default config file in possible locations
+func findDefaultConfigFile() (string, error) {
+	// Possible locations for the default config file
+	possiblePaths := []string{
+		"configs/default.yaml",                        // Relative to current directory
+		"./configs/default.yaml",                      // Explicit relative path
+		"/usr/share/hypr-input-switcher/default.yaml", // System-wide installation
+		"/etc/hypr-input-switcher/default.yaml",       // System config
 	}
+
+	// Get executable directory and add it to possible paths
+	if execDir, err := getExecutableDir(); err == nil {
+		possiblePaths = append([]string{
+			filepath.Join(execDir, "configs", "default.yaml"),
+			filepath.Join(execDir, "..", "configs", "default.yaml"), // For development
+		}, possiblePaths...)
+	}
+
+	// Try each possible path
+	for _, path := range possiblePaths {
+		if _, err := os.Stat(path); err == nil {
+			logger.Debugf("Found default config at: %s", path)
+			return path, nil
+		}
+	}
+
+	return "", fmt.Errorf("default config file not found in any of the expected locations: %v", possiblePaths)
+}
+
+// getExecutableDir returns the directory containing the executable
+func getExecutableDir() (string, error) {
+	execPath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Dir(execPath), nil
+}
+
+// copyFile copies a file from src to dst
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	if err != nil {
+		return err
+	}
+
+	// Sync to ensure the file is written to disk
+	return destFile.Sync()
+}
+
+// AddCallback adds a callback function to be called when config changes
+func (m *Manager) AddCallback(callback func(*Config)) {
+	m.callbacks = append(m.callbacks, callback)
+}
+
+// StartWatching starts watching the config file for changes
+func (m *Manager) StartWatching() error {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("failed to create file watcher: %w", err)
+	}
+
+	m.watcher = watcher
+
+	// Add config file to watcher
+	err = watcher.Add(m.configPath)
+	if err != nil {
+		return fmt.Errorf("failed to watch config file %s: %w", m.configPath, err)
+	}
+
+	// Also watch the directory in case the file gets replaced
+	configDir := filepath.Dir(m.configPath)
+	err = watcher.Add(configDir)
+	if err != nil {
+		logger.Warningf("Failed to watch config directory %s: %v", configDir, err)
+	}
+
+	go m.watchLoop()
+
+	logger.Infof("Started watching config file: %s", m.configPath)
+	return nil
+}
+
+// StopWatching stops watching the config file
+func (m *Manager) StopWatching() error {
+	if m.watcher != nil {
+		return m.watcher.Close()
+	}
+	return nil
+}
+
+func (m *Manager) watchLoop() {
+	for {
+		select {
+		case event, ok := <-m.watcher.Events:
+			if !ok {
+				return
+			}
+
+			// Check if it's our config file
+			if event.Name == m.configPath {
+				if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
+					logger.Infof("Config file changed: %s", event.Name)
+					m.reloadConfig()
+				}
+			}
+
+		case err, ok := <-m.watcher.Errors:
+			if !ok {
+				return
+			}
+			logger.Errorf("Config file watcher error: %v", err)
+		}
+	}
+}
+
+func (m *Manager) reloadConfig() {
+	logger.Info("Reloading configuration...")
+
+	newConfig, err := LoadConfig(m.configPath)
+	if err != nil {
+		logger.Errorf("Failed to reload config: %v", err)
+		return
+	}
+
+	m.mutex.Lock()
+	oldConfig := m.config
+	m.config = newConfig
+	m.mutex.Unlock()
+
+	logger.Info("Configuration reloaded successfully")
+
+	// Call all registered callbacks
+	for _, callback := range m.callbacks {
+		go func(cb func(*Config)) {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Errorf("Config callback panic: %v", r)
+				}
+			}()
+			cb(newConfig)
+		}(callback)
+	}
+
+	// Log config changes
+	m.logConfigChanges(oldConfig, newConfig)
+}
+
+func (m *Manager) logConfigChanges(oldConfig, newConfig *Config) {
+	if oldConfig == nil {
+		return
+	}
+
+	// Log changes in default input method
+	if oldConfig.DefaultInputMethod != newConfig.DefaultInputMethod {
+		logger.Infof("Default input method changed: %s -> %s", oldConfig.DefaultInputMethod, newConfig.DefaultInputMethod)
+	}
+
+	// Log changes in client rules count
+	if len(oldConfig.ClientRules) != len(newConfig.ClientRules) {
+		logger.Infof("Client rules count changed: %d -> %d", len(oldConfig.ClientRules), len(newConfig.ClientRules))
+	}
+
+	// Log changes in fcitx5 settings
+	if oldConfig.Fcitx5.Enabled != newConfig.Fcitx5.Enabled {
+		logger.Infof("Fcitx5 enabled changed: %v -> %v", oldConfig.Fcitx5.Enabled, newConfig.Fcitx5.Enabled)
+	}
+
+	// Log changes in notification settings
+	if oldConfig.Notifications.Enabled != newConfig.Notifications.Enabled {
+		logger.Infof("Notifications enabled changed: %v -> %v", oldConfig.Notifications.Enabled, newConfig.Notifications.Enabled)
+	}
+}
+
+// getDefaultConfigPath returns the default configuration file path
+func getDefaultConfigPath() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		// Fallback to current directory if can't get home directory
+		return "./config.yaml"
+	}
+	return filepath.Join(homeDir, ".config", "hypr-input-switcher", "config.yaml")
 }

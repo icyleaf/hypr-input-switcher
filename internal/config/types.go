@@ -7,7 +7,6 @@ type Config struct {
 	DefaultInputMethod string             `yaml:"default_input_method" json:"default_input_method"`
 	InputMethods       map[string]string  `yaml:"input_methods" json:"input_methods"`
 	ClientRules        []ClientRule       `yaml:"client_rules" json:"client_rules"`
-	DefaultIM          string             `yaml:"default_input_method" json:"default_input_method"`
 	Fcitx5             Fcitx5Config       `yaml:"fcitx5" json:"fcitx5"`
 	RimeSchemas        map[string]string  `yaml:"rime_schemas" json:"rime_schemas"`
 	Notifications      NotificationConfig `yaml:"notifications" json:"notifications"`
@@ -29,12 +28,15 @@ type Fcitx5Config struct {
 	RimeConfigDir   string `yaml:"rime_config_dir" json:"rime_config_dir"`
 }
 
-// NotificationConfig represents notification settings
+// NotificationConfig represents notification configuration
 type NotificationConfig struct {
-	Enabled      bool `yaml:"enabled" json:"enabled"`
-	Duration     int  `yaml:"duration" json:"duration"`
-	ShowOnSwitch bool `yaml:"show_on_switch" json:"show_on_switch"`
-	ShowAppName  bool `yaml:"show_app_name" json:"show_app_name"`
+	Enabled         bool     `json:"enabled" yaml:"enabled"`
+	Duration        int      `json:"duration" yaml:"duration"`
+	ShowOnSwitch    bool     `json:"show_on_switch" yaml:"show_on_switch"`
+	ShowAppName     bool     `json:"show_app_name" yaml:"show_app_name"`
+	Methods         []string `json:"methods" yaml:"methods"`
+	ForceMethod     string   `json:"force_method" yaml:"force_method"`
+	DisabledMethods []string `json:"disabled_methods" yaml:"disabled_methods"`
 }
 
 // WindowInfo represents active window information
