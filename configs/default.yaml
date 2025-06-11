@@ -1,0 +1,69 @@
+version: 2
+description: Hyprland Input Method Switcher Configuration
+input_methods:
+  english: keyboard-us
+  chinese: rime
+  japanese: rime
+client_rules:
+  - class: firefox
+    title: ""
+    input_method: chinese
+  - class: google-chrome
+    title: ""
+    input_method: japanese
+  - class: chromium
+    title: ""
+    input_method: chinese
+  - class: wechat
+    title: ""
+    input_method: chinese
+  - class: code
+    title: ""
+    input_method: english
+  - class: vim
+    title: ""
+    input_method: english
+  - class: nvim
+    title: ""
+    input_method: english
+  - class: terminal
+    title: ""
+    input_method: english
+  - class: kitty
+    title: ""
+    input_method: english
+  - class: alacritty
+    title: ""
+    input_method: english
+  - class: wezterm
+    title: ""
+    input_method: english
+  - class: obsidian
+    title: ""
+    input_method: chinese
+  - class: typora
+    title: ""
+    input_method: chinese
+  - class: anki
+    title: ""
+    input_method: japanese
+default_input_method: english
+fcitx5:
+  enabled: true
+  rime_input_method: rime
+rime_schemas:
+  chinese: rime_frost
+  japanese: jaroomaji
+notifications:
+  enabled: true
+  duration: 2000
+  show_on_switch: true
+  show_app_name: true
+display_names:
+  english: English
+  chinese: 中文
+  japanese: 日本語
+icons:
+  english: input-keyboard
+  chinese: input-method
+  japanese: input-method
