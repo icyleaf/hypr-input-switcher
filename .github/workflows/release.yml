@@ -1,0 +1,164 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  GO_VERSION: '1.21'
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "release_date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUR_KEY: ${{ secrets.AUR_KEY }}
+
+      # - name: Fetch checksum content
+      #   id: dist
+      #   run: |
+      #     {
+      #       echo 'checksums<<EOF'
+      #       cat dist/checksums.txt
+      #       echo EOF
+      #     } >> $GITHUB_OUTPUT
+
+      # - name: Generate changelog
+      #   id: changelog
+      #   run: |
+      #     PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+      #     CURRENT_TAG=${{ steps.version.outputs.tag }}
+
+      #     echo "Current tag: $CURRENT_TAG"
+      #     echo "Previous tag: $PREVIOUS_TAG"
+
+      #     if [ -n "$PREVIOUS_TAG" ]; then
+      #       CHANGELOG=$(git log --pretty=format:"- %s (%h)" "$PREVIOUS_TAG..$CURRENT_TAG")
+      #     else
+      #       CHANGELOG=$(git log --pretty=format:"- %s (%h)" | head -20)
+      #     fi
+
+      #     CHANGELOG_ESCAPED=$(echo "$CHANGELOG" | sed ':a;N;$!ba;s/\n/\\n/g')
+      #     echo "changelog<<EOF" >> $GITHUB_OUTPUT
+      #     echo "$CHANGELOG" >> $GITHUB_OUTPUT
+      #     echo "EOF" >> $GITHUB_OUTPUT
+
+      # - name: Create Release
+      #   uses: ncipollo/release-action@v1
+      #   with:
+      #     tag: ${{ steps.version.outputs.tag }}
+      #     name: "Hypr Input Switcher ${{ steps.version.outputs.version }}"
+      #     body: |
+      #       🎉 **Release ${{ steps.version.outputs.version }}**
+
+      #       A smart input method switcher for Hyprland that automatically switches input methods based on the active window.
+
+      #       ## 📦 Installation
+
+      #       ### Quick Install
+      #       ```bash
+      #       # Download and install (amd64)
+      #       wget https://github.com/icyleaf/hypr-input-switcher/releases/download/${{ steps.version.outputs.tag }}/${{ steps.artifacts.outputs.amd64_name }}
+      #       tar -xzf ${{ steps.artifacts.outputs.amd64_name }}
+      #       sudo cp hypr-input-switcher /usr/local/bin/
+
+      #       # Download and install (arm64)
+      #       wget https://github.com/icyleaf/hypr-input-switcher/releases/download/${{ steps.version.outputs.tag }}/${{ steps.artifacts.outputs.arm64_name }}
+      #       tar -xzf ${{ steps.artifacts.outputs.arm64_name }}
+      #       sudo cp hypr-input-switcher /usr/local/bin/
+      #       ```
+
+      #       ### Package Managers
+      #       ```bash
+      #       # Arch Linux (AUR)
+      #       paru -S hypr-input-switcher-bin
+
+      #       ## 🚀 Quick Start
+
+      #       1. **Configure Hyprland** (add to `~/.config/hypr/hyprland.conf`):
+      #       ```ini
+      #       # Auto-start hypr-input-switcher
+      #       exec-once = hypr-input-switcher
+      #       ```
+
+      #       2. **Run with default settings**:
+      #       ```bash
+      #       hypr-input-switcher
+      #       ```
+
+      #       3. **Custom configuration**:
+      #       ```bash
+      #       hypr-input-switcher --config=/path/to/config.yaml
+      #       ```
+
+      #       ## 📋 What's Changed
+
+      #       ${{ steps.changelog.outputs.changelog }}
+
+      #       ## 📁 Files in this release
+
+      #       - `${{ steps.artifacts.outputs.amd64_name }}` - Linux AMD64 binary
+      #       - `${{ steps.artifacts.outputs.arm64_name }}` - Linux ARM64 binary
+      #       - `${{ steps.artifacts.outputs.checksum_name }}` - SHA256 checksums
+
+      #       ## 🔧 Build Information
+
+      #       - **Release Date**: ${{ steps.version.outputs.release_date }}
+      #       - **Commit**: ${{ github.sha }}
+      #       - **Go Version**: ${{ env.GO_VERSION }}
+
+      #       ---
+
+      #       **Full Changelog**: https://github.com/icyleaf/hypr-input-switcher/compare/${{ steps.changelog.outputs.previous_tag }}...${{ steps.version.outputs.tag }}
+
+      #       **Checksums:**
+      #       ```
+      #       ${{ steps.dist.outputs.checksums }}
+      #       ```
+      #     draft: false
+      #     prerelease: false
+      #     allowUpdates: false
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     artifacts: "dist/*.tar.gz,dist/*.apk,dist/*.deb,dist/*.rpm,dist/checksums.txt"
+
+      - name: Publish AUR package
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+        with:
+          pkgname: hypr-input-switcher-bin
+          pkgbuild: ./dist/aur/hypr-input-switcher-bin.pkgbuild
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_KEY }}
+          commit_message: Update AUR package
+          ssh_keyscan_types: rsa,ecdsa,ed25519
