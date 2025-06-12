@@ -1,0 +1,184 @@
+project_name: hypr-input-switcher
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    main: ./cmd/hypr-input-switcher
+    binary: hypr-input-switcher
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - README.md
+      - LICENSE
+      - configs/default.yaml
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - '^style:'
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Performance improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: icyleaf
+    name: hypr-input-switcher
+  draft: false
+  prerelease: auto
+  mode: replace
+
+# AUR 配置
+aurs:
+  - name: hypr-input-switcher-bin
+    homepage: https://github.com/icyleaf/hypr-input-switcher
+    description: "Smart input method switcher for Hyprland"
+    maintainers:
+      - 'icyleaf <icyleaf.cn at gmail dot com>'
+    license: MIT
+    private_key: '{{ .Env.AUR_KEY }}'
+    git_url: 'ssh://aur@aur.archlinux.org/hypr-input-switcher-bin.git'
+    commit_author:
+      name: icyleaf
+      email: icyleaf.cn@gmail.com
+    commit_msg_template: "upgpkg: {{ .ProjectName }}-bin {{ .Tag }}"
+
+    # 依赖关系
+    depends:
+      - fcitx5
+      - hyprland
+    optdepends:
+      - 'fcitx5-rime: Chinese input support'
+      - 'fcitx5-mozc: Japanese input support'
+      - 'fcitx5-hangul: Korean input support'
+      - 'dunst: Desktop notifications'
+
+    # 包冲突
+    conflicts:
+      - hypr-input-switcher
+    provides:
+      - hypr-input-switcher
+
+    # PKGBUILD 自定义内容
+    package: |-
+      # Install binary
+      install -Dm755 "./hypr-input-switcher" "${pkgdir}/usr/bin/hypr-input-switcher"
+
+      # Install default config
+      install -Dm644 "./configs/default.yaml" "${pkgdir}/usr/share/hypr-input-switcher/default.yaml"
+
+      # Install license
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/hypr-input-switcher/LICENSE"
+
+      # Install documentation
+      install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/hypr-input-switcher/README.md"
+
+# 可选：同时创建从源码构建的 AUR 包
+  - name: hypr-input-switcher
+    homepage: https://github.com/icyleaf/hypr-input-switcher
+    description: "Smart input method switcher for Hyprland"
+    maintainers:
+      - 'icyleaf <icyleaf.cn at gmail dot com>'
+    license: MIT
+    private_key: '{{ .Env.AUR_KEY }}'
+    git_url: 'ssh://aur@aur.archlinux.org/hypr-input-switcher.git'
+    commit_author:
+      name: icyleaf
+      email: icyleaf.cn@gmail.com
+
+    depends:
+      - fcitx5
+      - hyprland
+    optdepends:
+      - 'fcitx5-rime: Chinese input support'
+      - 'fcitx5-mozc: Japanese input support'
+      - 'fcitx5-hangul: Korean input support'
+
+    conflicts:
+      - hypr-input-switcher-bin
+    provides:
+      - hypr-input-switcher
+
+    # 从源码构建的自定义脚本
+    package: |-
+      cd "${srcdir}/${pkgname}-${pkgver}"
+
+      # Build from source
+      export CGO_ENABLED=0
+      export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+      go build -ldflags "-linkmode external -extldflags \"${LDFLAGS}\" -s -w -X main.version=${pkgver}" -o hypr-input-switcher ./cmd/hypr-input-switcher
+
+      # Install
+      install -Dm755 "./hypr-input-switcher" "${pkgdir}/usr/bin/hypr-input-switcher"
+      install -Dm644 "./configs/default.yaml" "${pkgdir}/usr/share/hypr-input-switcher/default.yaml"
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/hypr-input-switcher/LICENSE"
+      install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/hypr-input-switcher/README.md"
+
+# 其他包管理器配置
+nfpms:
+  - file_name_template: '{{ .ProjectName }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+    homepage: https://github.com/icyleaf/hypr-input-switcher
+    description: "Smart input method switcher for Hyprland"
+    maintainer: icyleaf <icyleaf.cn@gmail.com>
+    license: MIT
+    vendor: icyleaf
+    bindir: /usr/bin
+    section: utils
+    contents:
+      - src: ./configs/default.yaml
+        dst: /usr/share/hypr-input-switcher/default.yaml
+        type: "config|noreplace"
+      - src: ./README.md
+        dst: /usr/share/doc/hypr-input-switcher/README.md
+        type: doc
+    formats:
+      - deb
+      - rpm
+      - apk
+    dependencies:
+      - fcitx5
+    recommends:
+      - fcitx5-rime

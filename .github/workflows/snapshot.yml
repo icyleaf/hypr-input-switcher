@@ -1,0 +1,123 @@
+name: Snapshot
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # 允许手动触发
+
+permissions:
+  contents: write
+  packages: write
+  actions: read
+
+jobs:
+  # test:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: '1.21'
+
+  #     - name: Run tests
+  #       run: go test -v ./...
+
+  #     - name: Build
+  #       run: go build -v ./cmd/hypr-input-switcher
+
+  snapshot-release:
+    runs-on: ubuntu-latest
+    # needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Generate snapshot version
+        id: version
+        run: |
+          TIMESTAMP=$(date +'%Y%m%d-%H%M%S')
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          SNAPSHOT_VERSION="0.0.0-snapshot.${TIMESTAMP}.${SHORT_SHA}"
+          echo "version=${SNAPSHOT_VERSION}" >> $GITHUB_OUTPUT
+          echo "timestamp=$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_OUTPUT
+
+      - name: Run GoReleaser (snapshot)
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: build --snapshot --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List generated files
+        run: |
+          echo "Generated files:"
+          find dist/ -type f -name "*.tar.gz" -o -name "checksums.txt" | sort
+          echo ""
+          echo "Directory structure:"
+          ls -la dist/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hypr-input-switcher-snapshot-${{ steps.version.outputs.timestamp }}
+          path: dist/
+          retention-days: 90
+
+      - name: Delete existing snapshot release
+        continue-on-error: true
+        run: |
+          gh release delete snapshot --yes || true
+          git push --delete origin snapshot || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create snapshot release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: snapshot
+          name: "Snapshot Release ${{ steps.version.outputs.version }}"
+          body: |
+            🔄 **Snapshot Release**
+
+            This is an automated snapshot build from the latest `main` branch.
+
+            **⚠️ Warning**: This is a development build and may be unstable.
+
+            **Build Info:**
+            - Commit: ${{ github.sha }}
+            - Date: ${{ steps.version.outputs.timestamp }}
+            - Version: ${{ steps.version.outputs.version }}
+
+            **Installation:**
+            ```bash
+            # Download and extract (amd64)
+            wget https://github.com/icyleaf/hypr-input-switcher/releases/download/snapshot/hypr-input-switcher_Linux_x86_64.tar.gz
+            tar -xzf hypr-input-switcher_Linux_x86_64.tar.gz
+            sudo cp hypr-input-switcher /usr/local/bin/
+
+            # Download and extract (arm64)
+            wget https://github.com/icyleaf/hypr-input-switcher/releases/download/snapshot/hypr-input-switcher_Linux_arm64.tar.gz
+            tar -xzf hypr-input-switcher_Linux_arm64.tar.gz
+            sudo cp hypr-input-switcher /usr/local/bin/
+            ```
+          draft: false
+          prerelease: true
+          allowUpdates: true
+          removeArtifacts: true
+          replacesArtifacts: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: "dist/*.tar.gz,dist/*.zip,dist/checksums.txt"

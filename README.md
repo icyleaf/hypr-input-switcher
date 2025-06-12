@@ -9,7 +9,7 @@ A smart input method switcher for Hyprland that automatically switches input met
 - 🔔 **Rich Notification System**: Multiple notification backends with emoji support
 - 🎯 **Pattern Matching**: Supports regex and string matching for window classes and titles
 - 📁 **Hot Configuration Reload**: Watch configuration file changes and reload without restart
-- 🛠 **Multiple Input Methods**: Full support for Fcitx5, Rime, and other input methods
+- 🛠 **Multiple Input Methods**: Full support for Fcitx5, Rime
 - 📊 **Comprehensive Logging**: Configurable log levels with multiple output options
 - 🌐 **Cross-Platform Icons**: Support for both emoji and traditional desktop icons
 
@@ -23,7 +23,7 @@ This application is specifically designed for **Hyprland** and requires:
 - **hyprctl** command-line tool (comes with Hyprland)
 - One of the supported input method frameworks:
   - **Fcitx5** (recommended)
-  - **Rime** (Only work with Fcitx5)
+  - **Rime** (can work with Fcitx5)
 
 ### Hyprland Configuration
 
@@ -98,6 +98,79 @@ windowrulev2 = float,class:^(org.fcitx.*)$
 
 ## Installation
 
+### Official Releases
+
+Download the latest stable release from the [GitHub Releases page](https://github.com/icyleaf/hypr-input-switcher/releases).
+
+```bash
+# Download and install the latest release
+curl -s https://api.github.com/repos/icyleaf/hypr-input-switcher/releases/latest \
+  | grep "browser_download_url.*Linux_x86_64.tar.gz" \
+  | cut -d : -f 2,3 \
+  | tr -d \" \
+  | wget -qi -
+
+# Extract and install
+tar -xzf hypr-input-switcher_Linux_x86_64.tar.gz
+sudo cp hypr-input-switcher /usr/local/bin/
+sudo chmod +x /usr/local/bin/hypr-input-switcher
+```
+
+### Development Snapshots
+
+For testing the latest development version, you can download snapshot builds from GitHub Actions:
+
+1. **Visit the [Actions page](https://github.com/icyleaf/hypr-input-switcher/actions/workflows/snapshot.yml)**
+2. **Click on the latest successful build from the `main` branch**
+3. **Download the artifact named `hypr-input-switcher-snapshot-YYYY-MM-DD`**
+4. **Extract and install:**
+   ```bash
+   # Unzip the downloaded artifact
+   unzip hypr-input-switcher-snapshot-*.zip
+
+   # Install
+   cd hypr-input-switcher-snapshot-*
+   sudo cp hypr-input-switcher_linux_amd64_v1/hypr-input-switcher /usr/local/bin/
+   sudo chmod +x /usr/local/bin/hypr-input-switcher
+   ```
+
+> **Note**: Snapshot builds require a GitHub account to download artifacts. These are automatically built from the latest `main` branch and may contain unstable features.
+
+### Package Managers (WIP)
+
+#### Arch Linux (AUR)
+
+```bash
+# Install from AUR using your preferred AUR helper
+yay -S hypr-input-switcher-bin
+
+# Or manually
+git clone https://aur.archlinux.org/hypr-input-switcher-bin.git
+cd hypr-input-switcher-bin
+makepkg -si
+```
+
+#### APT (Debian/Ubuntu)
+
+```bash
+# Download the .deb package from releases
+wget https://github.com/icyleaf/hypr-input-switcher/releases/latest/download/hypr-input-switcher_amd64.deb
+
+# Install
+sudo dpkg -i hypr-input-switcher_amd64.deb
+sudo apt-get install -f  # Fix dependencies if needed
+```
+
+#### RPM (Fedora/RHEL/CentOS)
+
+```bash
+# Download the .rpm package from releases
+wget https://github.com/icyleaf/hypr-input-switcher/releases/latest/download/hypr-input-switcher_x86_64.rpm
+
+# Install
+sudo rpm -i hypr-input-switcher_x86_64.rpm
+```
+
 ### From Source
 
 1. **Clone the repository:**
@@ -120,10 +193,6 @@ windowrulev2 = float,class:^(org.fcitx.*)$
    # Or user installation
    make install-dev
    ```
-
-### Binary Installation
-
-Download the latest release from the [releases page](https://github.com/icyleaf/hypr-input-switcher/releases).
 
 ### Auto-start with Hyprland
 
@@ -325,6 +394,9 @@ hypr-input-switcher --log-level=debug
 
 # Force stdout logging
 hypr-input-switcher --log-stdout
+
+# Show version
+hypr-input-switcher version
 
 # Combine options
 hypr-input-switcher --config=./my-config.yaml --watch --log-level=debug
