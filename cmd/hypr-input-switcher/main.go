@@ -13,6 +13,13 @@ import (
 	"hypr-input-switcher/pkg/logger"
 )
 
+// Version information (set at build time)
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "hypr-input-switcher",
 	Short: "Hyprland input method switcher",
@@ -20,7 +27,21 @@ var rootCmd = &cobra.Command{
 	Run:   runApp,
 }
 
+// versionCmd represents the version command
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print version information",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("hypr-input-switcher %s\n", version)
+		fmt.Printf("Commit: %s\n", commit)
+		fmt.Printf("Build Date: %s\n", date)
+	},
+}
+
 func init() {
+	// Add version command
+	rootCmd.AddCommand(versionCmd)
+
 	// Get default config path
 	defaultConfigPath := getDefaultConfigPath()
 
@@ -29,6 +50,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("config", "c", defaultConfigPath, fmt.Sprintf("config file (default: %s)", defaultConfigPath))
 	rootCmd.PersistentFlags().Bool("log-stdout", false, "Force log output to stdout")
 	rootCmd.PersistentFlags().BoolP("watch", "w", false, "Watch config file for changes and hot reload")
+	rootCmd.PersistentFlags().BoolP("version", "v", false, "Print version information")
 
 	// Bind flags to viper
 	viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
@@ -56,8 +78,17 @@ func main() {
 }
 
 func runApp(cmd *cobra.Command, args []string) {
+	// Check if version flag is set
+	if viper.GetBool("version") {
+		fmt.Printf("hypr-input-switcher %s\n", version)
+		return
+	}
+
 	// Setup logging first
 	setupLogging()
+
+	// Log version information
+	logger.Infof("Starting hypr-input-switcher %s (commit: %s, build date: %s)", version, commit, date)
 
 	// Get configuration values
 	configPath := viper.GetString("config")
