@@ -24,8 +24,8 @@ builds:
 archives:
   - format: tar.gz
     name_template: >-
-      {{ .ProjectName }}-bin_
-      {{- .Version }}_
+      {{ .ProjectName }}_
+      {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
@@ -83,6 +83,8 @@ aurs:
       name: icyleaf
       email: icyleaf.cn@gmail.com
     commit_msg_template: "upgpkg: {{ .ProjectName }}-bin {{ .Tag }}"
+
+    url_template: "https://github.com/icyleaf/hypr-input-switcher/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
 
     depends:
       - fcitx5
