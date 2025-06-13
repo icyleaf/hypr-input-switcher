@@ -1,0 +1,113 @@
+.features {
+  display: flex;
+  align-items: center;
+  padding: 6rem 0;
+  width: 100%;
+  background: #1a1a1a;
+}
+
+.sectionTitle {
+  text-align: center;
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, var(--ifm-color-primary) 0%, #ffffff 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.sectionSubtitle {
+  text-align: center;
+  font-size: 1.2rem;
+  color: #888;
+  margin-bottom: 4rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.featureCard {
+  padding: 2rem;
+  margin-bottom: 2rem; /* 添加底部间距 */
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  height: calc(100% - 2rem); /* 调整高度以适应间距 */
+  display: flex;
+  flex-direction: column;
+}
+
+.featureCard:hover {
+  transform: translateY(-5px);
+  border-color: var(--ifm-color-primary);
+  background: rgba(0, 217, 255, 0.05);
+  box-shadow: 0 10px 40px rgba(0, 217, 255, 0.1);
+}
+
+.featureIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto 1.5rem;
+  background: linear-gradient(135deg, var(--ifm-color-primary) 0%, var(--ifm-color-primary-light) 100%);
+  border-radius: 50%;
+  font-size: 2rem;
+}
+
+.featureContent {
+  text-align: center;
+  flex: 1;
+  padding-top: 1rem; /* 添加顶部间距 */
+}
+
+.featureContent h3 {
+  color: var(--ifm-color-primary);
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+}
+
+.featureContent p {
+  color: #b0b0b0;
+  line-height: 1.6;
+  margin: 0;
+  padding-bottom: 1rem; /* 添加底部间距 */
+}
+
+/* 确保每行之间有足够的间距 */
+.features .row {
+  margin-bottom: 2rem;
+}
+
+.features .row:last-child {
+  margin-bottom: 0;
+}
+
+/* 为每列添加间距 */
+.features .col {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+@media screen and (max-width: 996px) {
+  .features {
+    padding: 4rem 0;
+  }
+
+  .featureCard {
+    margin-bottom: 3rem; /* 移动端增加更多间距 */
+  }
+
+  .features .col {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .featureCard {
+    margin-bottom: 2rem;
+  }
+}
