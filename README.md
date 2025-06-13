@@ -1,3 +1,8 @@
+<div align="center">
+  <img src="docs/static/img/logo.svg" alt="Hypr Input Switcher" width="64" height="64">
+  <h1>Hypr Input Switcher</h1>
+</div>
+
 # Hyprland Input Method Switcher
 
 A smart input method switcher for Hyprland that automatically switches input methods based on the active window. Built with Go for performance and reliability.
