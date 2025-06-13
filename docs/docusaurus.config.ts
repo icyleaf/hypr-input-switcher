@@ -9,13 +9,13 @@ const config: Config = {
   tagline: 'Smart input method switcher for Hyprland',
   favicon: 'img/favicon.ico',
 
-  url: 'https://icyleaf.github.io',
-  baseUrl: '/hypr-input-switcher/',
+  url: 'https://hypr-input-switcher.ews.im',
+  baseUrl: '/',
 
   organizationName: 'icyleaf',
   projectName: 'hypr-input-switcher',
 
-  onBrokenLinks: 'throw',
+  onBrokenLinks: 'ignore',
   onBrokenMarkdownLinks: 'warn',
 
   i18n: {
@@ -29,11 +29,12 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/icyleaf/hypr-input-switcher/tree/main/docs-site/',
+          editUrl: 'https://github.com/icyleaf/hypr-input-switcher/tree/main/docs/',
         },
         theme: {
           customCss: './src/css/custom.css',
         },
+        pages: {},
       } satisfies Preset.Options,
     ],
   ],

@@ -3,6 +3,9 @@ name: Snapshot
 on:
   push:
     branches: [ main, develop ]
+    paths-ignore:
+      - '.github/workflows/release.yml'
+      - 'docs/**'
   pull_request:
     branches: [ main ]
   workflow_dispatch:
