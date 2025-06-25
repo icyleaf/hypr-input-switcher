@@ -53,11 +53,6 @@ func (app *Application) Run(configPath string, watchConfig bool) error {
 	// Register config change callback
 	app.configManager.AddCallback(app.onConfigChanged)
 
-	logger.Info("Starting Hyprland input method switcher...")
-
-	// Show which config file is being used
-	logger.Infof("Using config file: %s", app.configManager.GetConfigPath())
-
 	// Start config file watching if enabled
 	if watchConfig {
 		if err := app.configManager.StartWatching(); err != nil {
