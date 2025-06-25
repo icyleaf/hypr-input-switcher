@@ -186,11 +186,11 @@ func (n *Notifier) send(method, title, message, icon string) bool {
 		// Hyprland native notification, add emoji to message
 		var notificationText string
 		if n.isEmoji(icon) {
-			notificationText = fmt.Sprintf("rgb(ffffff) %s %s: %s", icon, title, message)
+			notificationText = fmt.Sprintf("%s %s: %s", icon, title, message)
 		} else {
-			notificationText = fmt.Sprintf("rgb(ffffff) %s: %s", title, message)
+			notificationText = fmt.Sprintf("%s: %s", title, message)
 		}
-		cmd = exec.Command("hyprctl", "notify", "2", duration, notificationText)
+		cmd = exec.Command("hyprctl", "notify", "2", duration, "0", notificationText)
 
 	case "swaync-client":
 		// SwayNC supports emoji
