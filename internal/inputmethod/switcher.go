@@ -14,21 +14,25 @@ import (
 )
 
 type Switcher struct {
-	currentClient string
+	currentClient *ClientInfo
 	currentIM     string
 	config        *config.Config
 	fcitx5        *Fcitx5
 	rime          *Rime
+	notifier      interface {
+		ShowInputMethodSwitch(inputMethod string, clientInfo *config.WindowInfo)
+	} // Add notifier interface
 }
 
 type ClientInfo struct {
-	Class string `json:"class"`
-	Title string `json:"title"`
+	Address string `json:"address"`
+	Class   string `json:"class"`
+	Title   string `json:"title"`
 }
 
 func NewSwitcher(cfg *config.Config) *Switcher {
 	switcher := &Switcher{
-		currentClient: "",
+		currentClient: &ClientInfo{},
 		currentIM:     "",
 		config:        cfg,
 	}
@@ -40,6 +44,13 @@ func NewSwitcher(cfg *config.Config) *Switcher {
 	}
 
 	return switcher
+}
+
+// SetNotifier sets the notifier for the switcher
+func (s *Switcher) SetNotifier(notifier interface {
+	ShowInputMethodSwitch(inputMethod string, clientInfo *config.WindowInfo)
+}) {
+	s.notifier = notifier
 }
 
 func (s *Switcher) MonitorAndSwitch(ctx context.Context) error {
@@ -68,11 +79,9 @@ func (s *Switcher) processCurrentWindow() error {
 		return fmt.Errorf("failed to get current client: %w", err)
 	}
 
-	currentClient := fmt.Sprintf("%s:%s", clientInfo.Class, clientInfo.Title)
-
-	// If window changed
-	if currentClient != s.currentClient {
-		s.currentClient = currentClient
+	// If window changed (different address means different window)
+	if clientInfo.Address != s.currentClient.Address {
+		s.currentClient = clientInfo
 
 		// Get current input method status
 		currentIM := s.GetCurrent()
@@ -80,7 +89,7 @@ func (s *Switcher) processCurrentWindow() error {
 		// Determine target input method
 		targetIM := s.getTargetInputMethod(clientInfo)
 
-		logger.Infof("Window changed: %s - %s", clientInfo.Class, clientInfo.Title)
+		logger.Infof("Window changed: %s - %s (address: %s)", clientInfo.Class, clientInfo.Title, clientInfo.Address)
 		logger.Infof("Current IM: %s -> Target IM: %s", currentIM, targetIM)
 
 		// If input method needs to be switched
@@ -91,6 +100,16 @@ func (s *Switcher) processCurrentWindow() error {
 
 			logger.Infof("Switched input method to: %s", targetIM)
 			s.currentIM = targetIM
+
+			// Show notification if notifier is available and enabled
+			if s.notifier != nil && s.config.Notifications.ShowOnSwitch {
+				// Convert ClientInfo to config.WindowInfo
+				windowInfo := &config.WindowInfo{
+					Class: clientInfo.Class,
+					Title: clientInfo.Title,
+				}
+				s.notifier.ShowInputMethodSwitch(targetIM, windowInfo)
+			}
 		}
 	}
 
@@ -228,7 +247,7 @@ func (s *Switcher) IsReady() bool {
 // GetStatus returns current status information
 func (s *Switcher) GetStatus() map[string]interface{} {
 	status := map[string]interface{}{
-		"current_client": s.currentClient,
+		"current_client": s.currentClient, // Now contains the window address
 		"current_im":     s.currentIM,
 		"fcitx5_enabled": s.config.Fcitx5.Enabled,
 		"ready":          s.IsReady(),

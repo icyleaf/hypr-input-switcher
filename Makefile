@@ -55,7 +55,7 @@ test:
 	@go test ./...
 
 # Run with development config
-run-dev: build
+run-dev: clean build
 	@echo "Running with development config..."
 	@./$(BUILD_DIR)/$(BINARY_NAME) --config=./$(CONFIG_DIR)/default.yaml --log-level=debug
 
