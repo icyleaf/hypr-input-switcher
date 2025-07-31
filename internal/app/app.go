@@ -68,7 +68,7 @@ func (app *Application) Run(configPath string, watchConfig bool) error {
 			logger.Errorf("Failed to start config watching: %v", err)
 			// Continue without watching
 		} else {
-			logger.Info("Config file watching enabled")
+			logger.Debug("Config file watching enabled")
 		}
 	}
 

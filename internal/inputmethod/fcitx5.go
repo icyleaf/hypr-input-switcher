@@ -118,7 +118,7 @@ func (f *Fcitx5) switchToEnglishViaDBus() error {
 		return call.Err
 	}
 
-	logger.Info("Successfully switched to English via D-Bus")
+	logger.Debug("Successfully switched to English via D-Bus")
 	return nil
 }
 
@@ -158,7 +158,7 @@ func (f *Fcitx5) switchToRimeViaDBus() error {
 		return call.Err
 	}
 
-	logger.Info("Successfully switched to Rime via D-Bus")
+	logger.Debug("Successfully switched to Rime via D-Bus")
 	return nil
 }
 

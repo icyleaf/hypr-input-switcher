@@ -20,6 +20,8 @@ func init() {
 
 func SetLevel(level string) {
 	switch strings.ToLower(level) {
+	case "trace":
+		log.SetLevel(logrus.TraceLevel)
 	case "debug":
 		log.SetLevel(logrus.DebugLevel)
 	case "info":
@@ -33,6 +35,14 @@ func SetLevel(level string) {
 
 func SetOutput(output *os.File) {
 	log.SetOutput(output)
+}
+
+func Trace(args ...interface{}) {
+	log.Trace(args...)
+}
+
+func Tracef(format string, args ...interface{}) {
+	log.Tracef(format, args...)
 }
 
 func Debug(args ...interface{}) {

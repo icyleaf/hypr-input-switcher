@@ -120,8 +120,7 @@ func setupLogging() {
 		logger.SetOutput(os.Stdout)
 	}
 
-	logger.Infof("Log level set to: %s", logLevel)
-	logger.Infof("Logging to stdout: %v", logStdout)
+	logger.Debugf("Log level set to: %s, enable logging to stdout: %v", logLevel, logStdout)
 }
 
 // getDefaultConfigPath returns the default configuration file path

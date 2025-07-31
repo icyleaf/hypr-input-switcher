@@ -201,7 +201,7 @@ func (m *Manager) StartWatching() error {
 
 	go m.watchLoop()
 
-	logger.Infof("Started watching config file: %s", m.configPath)
+	logger.Debugf("Started watching config file: %s", m.configPath)
 	return nil
 }
 
@@ -262,7 +262,7 @@ func (m *Manager) handleFileChangeDebounced() {
 
 // Handle actual file change
 func (m *Manager) handleFileChange() {
-	logger.Info("Reloading configuration...")
+	logger.Debug("Reloading configuration...")
 
 	newConfig, err := m.Load()
 	if err != nil {
@@ -270,7 +270,7 @@ func (m *Manager) handleFileChange() {
 		return
 	}
 
-	logger.Info("Configuration reloaded successfully")
+	logger.Debug("Configuration reloaded successfully")
 
 	// Call all callback functions
 	m.callbacksMutex.RLock()
@@ -280,33 +280,6 @@ func (m *Manager) handleFileChange() {
 
 	for _, callback := range callbacks {
 		go callback(newConfig)
-	}
-}
-
-// LogConfigChanges logs the changes between old and new config
-func (m *Manager) logConfigChanges(oldConfig, newConfig *Config) {
-	if oldConfig == nil {
-		return
-	}
-
-	// Log changes in default input method
-	if oldConfig.DefaultInputMethod != newConfig.DefaultInputMethod {
-		logger.Infof("Default input method changed: %s -> %s", oldConfig.DefaultInputMethod, newConfig.DefaultInputMethod)
-	}
-
-	// Log changes in client rules count
-	if len(oldConfig.ClientRules) != len(newConfig.ClientRules) {
-		logger.Infof("Client rules count changed: %d -> %d", len(oldConfig.ClientRules), len(newConfig.ClientRules))
-	}
-
-	// Log changes in fcitx5 settings
-	if oldConfig.Fcitx5.Enabled != newConfig.Fcitx5.Enabled {
-		logger.Infof("Fcitx5 enabled changed: %v -> %v", oldConfig.Fcitx5.Enabled, newConfig.Fcitx5.Enabled)
-	}
-
-	// Log changes in notification settings
-	if oldConfig.Notifications.Enabled != newConfig.Notifications.Enabled {
-		logger.Infof("Notifications enabled changed: %v -> %v", oldConfig.Notifications.Enabled, newConfig.Notifications.Enabled)
 	}
 }
 

@@ -82,7 +82,7 @@ func (r *Rime) SwitchSchema(targetMethod string) error {
 
 	// Try D-Bus first
 	if err := r.switchSchemaViaDBus(schema); err == nil {
-		logger.Infof("Successfully switched rime schema to: %s (D-Bus)", schema)
+		logger.Debugf("Successfully switched rime schema to: %s (D-Bus)", schema)
 		return nil
 	}
 
@@ -92,7 +92,7 @@ func (r *Rime) SwitchSchema(targetMethod string) error {
 
 // switchSchemaViaDBus switches schema via D-Bus
 func (r *Rime) switchSchemaViaDBus(schema string) error {
-	logger.Infof("Switching rime schema to: %s via D-Bus", schema)
+	logger.Debugf("Switching rime schema to: %s via D-Bus", schema)
 
 	conn, err := dbus.SessionBus()
 	if err != nil {
@@ -107,7 +107,7 @@ func (r *Rime) switchSchemaViaDBus(schema string) error {
 
 // switchSchemaFallback switches schema using fallback method
 func (r *Rime) switchSchemaFallback(schema string) error {
-	logger.Infof("Switching rime schema to: %s via fallback method", schema)
+	logger.Debugf("Switching rime schema to: %s via fallback method", schema)
 
 	cmd := exec.Command("dbus-send",
 		"--type=method_call",
@@ -121,7 +121,7 @@ func (r *Rime) switchSchemaFallback(schema string) error {
 		return err
 	}
 
-	logger.Infof("Successfully switched rime schema to: %s (dbus-send)", schema)
+	logger.Debugf("Successfully switched rime schema to: %s (dbus-send)", schema)
 	return nil
 }
 

@@ -58,11 +58,11 @@ func (s *Switcher) SetNotifier(notifier interface {
 }
 
 func (s *Switcher) MonitorAndSwitch(ctx context.Context) error {
-	logger.Info("Starting Hyprland input method switcher...")
+	logger.Debug("Starting Hyprland input method switcher...")
 
 	// Process initial window
 	if err := s.processCurrentWindow(); err != nil {
-		logger.Debugf("Error processing initial window: %v", err)
+		logger.Warningf("Error processing initial window: %v", err)
 	}
 
 	// Start IPC event monitoring
@@ -76,7 +76,7 @@ func (s *Switcher) monitorHyprlandEvents(ctx context.Context) error {
 		return fmt.Errorf("failed to get Hyprland event socket path")
 	}
 
-	logger.Infof("Connecting to Hyprland event socket: %s", socketPath)
+	logger.Debugf("Connecting to Hyprland event socket: %s", socketPath)
 
 	for {
 		select {
@@ -99,7 +99,7 @@ func (s *Switcher) monitorHyprlandEvents(ctx context.Context) error {
 			}
 		}
 
-		logger.Info("Connected to Hyprland event socket")
+		logger.Debug("Connected to Hyprland event socket")
 
 		// Monitor events
 		err = s.handleEvents(ctx, conn)
@@ -146,18 +146,18 @@ func (s *Switcher) handleEvents(ctx context.Context, conn net.Conn) error {
 		eventType := parts[0]
 		eventData := parts[1]
 
-		logger.Debugf("Received event: %s >> %s", eventType, eventData)
+		logger.Tracef("Received event: %s >> %s", eventType, eventData)
 
 		// Handle window focus events - prefer activewindowv2 for better info
 		switch eventType {
 		case "activewindowv2":
 			if err := s.handleActiveWindowV2Event(eventData); err != nil {
-				logger.Debugf("Error handling activewindowv2 event: %v", err)
+				logger.Warningf("Error handling activewindowv2 event: %v", err)
 			}
 		case "activewindow":
 			// Fallback for older Hyprland versions
 			if err := s.handleActiveWindowEvent(eventData); err != nil {
-				logger.Debugf("Error handling activewindow event: %v", err)
+				logger.Warningf("Error handling activewindow event: %v", err)
 			}
 		}
 	}
@@ -169,15 +169,15 @@ func (s *Switcher) handleActiveWindowV2Event(eventData string) error {
 	// eventData format: "windowaddress" (hex address like 0x12345678)
 	windowAddress := strings.TrimSpace(eventData)
 	if windowAddress == "" {
-		logger.Debugf("Empty activewindowv2 event data")
+		logger.Tracef("Empty activewindowv2 event data")
 		return nil
 	}
 
-	logger.Debugf("Active window changed to address: %s", windowAddress)
+	logger.Tracef("Active window changed to address: %s", windowAddress)
 
 	// Check if this is the same window we're already tracking
 	if windowAddress == s.currentClient.Address {
-		logger.Debugf("Same window address, skipping: %s", windowAddress)
+		logger.Tracef("Same window address, skipping: %s", windowAddress)
 		return nil
 	}
 
@@ -189,7 +189,7 @@ func (s *Switcher) handleActiveWindowV2Event(eventData string) error {
 
 	// Verify the event matches current window address
 	if clientInfo.Address != windowAddress {
-		logger.Debugf("Event address mismatch: got %s, expected %s", windowAddress, clientInfo.Address)
+		logger.Tracef("Event address mismatch: got %s, expected %s", windowAddress, clientInfo.Address)
 		return nil
 	}
 
@@ -201,14 +201,14 @@ func (s *Switcher) handleActiveWindowEvent(eventData string) error {
 	// eventData format: "class,title"
 	parts := strings.SplitN(eventData, ",", 2)
 	if len(parts) < 2 {
-		logger.Debugf("Invalid activewindow event data: %s", eventData)
+		logger.Warningf("Invalid activewindow event data: %s", eventData)
 		return nil
 	}
 
 	class := parts[0]
 	title := parts[1]
 
-	logger.Debugf("Active window changed: class=%s, title=%s", class, title)
+	logger.Tracef("Active window changed: class=%s, title=%s", class, title)
 
 	// Get full client info for the active window
 	clientInfo, err := s.getCurrentClient()
@@ -218,13 +218,13 @@ func (s *Switcher) handleActiveWindowEvent(eventData string) error {
 
 	// Verify the event matches current window
 	if clientInfo.Class != class {
-		logger.Debugf("Event class mismatch: got %s, expected %s", class, clientInfo.Class)
+		logger.Tracef("Event class mismatch: got %s, expected %s", class, clientInfo.Class)
 		return nil
 	}
 
 	// Check if this is the same window we're already tracking
 	if clientInfo.Address == s.currentClient.Address {
-		logger.Debugf("Same window address, skipping: %s", clientInfo.Address)
+		logger.Tracef("Same window address, skipping: %s", clientInfo.Address)
 		return nil
 	}
 
@@ -242,8 +242,8 @@ func (s *Switcher) processWindowChange(clientInfo *ClientInfo) error {
 	// Determine target input method
 	targetIM := s.getTargetInputMethod(clientInfo)
 
-	logger.Infof("Window changed: %s - %s (address: %s)", clientInfo.Class, clientInfo.Title, clientInfo.Address)
-	logger.Infof("Current IM: %s -> Target IM: %s", currentIM, targetIM)
+	logger.Debugf("Window changed: %s - %s (address: %s)", clientInfo.Class, clientInfo.Title, clientInfo.Address)
+	logger.Debugf("Current IM: %s -> Target IM: %s", currentIM, targetIM)
 
 	// If input method needs to be switched
 	if currentIM != targetIM && currentIM != "unknown" {
@@ -251,7 +251,7 @@ func (s *Switcher) processWindowChange(clientInfo *ClientInfo) error {
 			return fmt.Errorf("failed to switch input method to %s: %w", targetIM, err)
 		}
 
-		logger.Infof("Switched input method to: %s", targetIM)
+		logger.Debugf("Switched input method to: %s", targetIM)
 		s.currentIM = targetIM
 
 		// Show notification if notifier is available and enabled
@@ -278,29 +278,29 @@ func (s *Switcher) processCurrentWindow() error {
 }
 
 func (s *Switcher) getHyprlandEventSocket() string {
-	logger.Debugf("Searching for Hyprland IPC socket...")
+	logger.Tracef("Searching for Hyprland IPC socket...")
 
 	// Get XDG_RUNTIME_DIR
 	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
 	if runtimeDir == "" {
-		logger.Debugf("XDG_RUNTIME_DIR not set, falling back to /tmp")
+		logger.Tracef("XDG_RUNTIME_DIR not set, falling back to /tmp")
 		runtimeDir = "/tmp"
 	}
-	logger.Debugf("Using runtime directory: %s", runtimeDir)
+	logger.Tracef("Using runtime directory: %s", runtimeDir)
 
 	// Try environment variables first
 	if hyprInstance := os.Getenv("HYPRLAND_INSTANCE_SIGNATURE"); hyprInstance != "" {
-		logger.Debugf("Found HYPRLAND_INSTANCE_SIGNATURE: %s", hyprInstance)
+		logger.Tracef("Found HYPRLAND_INSTANCE_SIGNATURE: %s", hyprInstance)
 		socketPath := fmt.Sprintf("%s/hypr/%s/.socket2.sock", runtimeDir, hyprInstance)
-		logger.Debugf("Checking socket path: %s", socketPath)
+		logger.Tracef("Checking socket path: %s", socketPath)
 		if _, err := os.Stat(socketPath); err == nil {
-			logger.Infof("Found Hyprland IPC socket via environment: %s", socketPath)
+			logger.Debug("Found Hyprland IPC socket via environment")
 			return socketPath
 		} else {
-			logger.Debugf("Hyprland IPC Socket not found via environment: %v", err)
+			logger.Tracef("Hyprland IPC Socket not found via environment: %v", err)
 		}
 	} else {
-		logger.Debugf("HYPRLAND_INSTANCE_SIGNATURE not set")
+		logger.Tracef("HYPRLAND_INSTANCE_SIGNATURE not set")
 	}
 
 	// Check if hypr directory exists in runtime dir
@@ -317,32 +317,32 @@ func (s *Switcher) getHyprlandEventSocket() string {
 		return ""
 	}
 
-	logger.Debugf("Found %d entries in %s", len(entries), hyprDir)
+	logger.Tracef("Found %d entries in %s", len(entries), hyprDir)
 	for _, entry := range entries {
 		if entry.IsDir() {
 			socketPath := fmt.Sprintf("%s/%s/.socket2.sock", hyprDir, entry.Name())
-			logger.Debugf("Checking socket: %s", socketPath)
+			logger.Tracef("Checking socket: %s", socketPath)
 			if _, err := os.Stat(socketPath); err == nil {
-				logger.Infof("Found Hyprland event socket: %s", socketPath)
+				logger.Debug("Found Hyprland event socket")
 				return socketPath
 			} else {
-				logger.Debugf("Socket not found: %v", err)
+				logger.Tracef("Socket not found: %v", err)
 			}
 		}
 	}
 
 	// Fallback: try to find socket using glob pattern in runtime dir
 	globPattern := fmt.Sprintf("%s/hypr/*/.socket2.sock", runtimeDir)
-	logger.Debugf("Trying glob pattern: %s", globPattern)
+	logger.Tracef("Trying glob pattern: %s", globPattern)
 	matches, err := filepath.Glob(globPattern)
 	if err != nil {
 		logger.Errorf("Glob pattern failed: %v", err)
 		return ""
 	}
 
-	logger.Debugf("Glob found %d matches", len(matches))
+	logger.Tracef("Glob found %d matches", len(matches))
 	for _, match := range matches {
-		logger.Debugf("Glob match: %s", match)
+		logger.Tracef("Glob match: %s", match)
 	}
 
 	if len(matches) == 0 {
@@ -360,10 +360,10 @@ func (s *Switcher) getHyprlandEventSocket() string {
 		}
 
 		// Also check for legacy /tmp/hypr path
-		logger.Debugf("Checking legacy /tmp/hypr path...")
+		logger.Trace("Checking legacy /tmp/hypr path...")
 		legacyPattern := "/tmp/hypr/*/.socket2.sock"
 		if legacyMatches, err := filepath.Glob(legacyPattern); err == nil && len(legacyMatches) > 0 {
-			logger.Infof("Found legacy socket: %s", legacyMatches[0])
+			logger.Debug("Found legacy socket")
 			return legacyMatches[0]
 		}
 
@@ -371,7 +371,7 @@ func (s *Switcher) getHyprlandEventSocket() string {
 	}
 
 	// Use the first available socket
-	logger.Infof("Using first available socket: %s", matches[0])
+	logger.Debug("Using first available socket")
 	return matches[0]
 }
 
@@ -414,7 +414,7 @@ func (s *Switcher) getTargetInputMethod(clientInfo *ClientInfo) string {
 	className := clientInfo.Class
 	title := clientInfo.Title
 
-	logger.Debugf("Matching rules for class: %s, title: %s", className, title)
+	logger.Tracef("Matching rules for class: %s, title: %s", className, title)
 
 	// Check client rules
 	for _, rule := range s.config.ClientRules {
@@ -425,18 +425,18 @@ func (s *Switcher) getTargetInputMethod(clientInfo *ClientInfo) string {
 
 		// If title is empty or not specified, class match is enough
 		if rule.Title == "" {
-			logger.Debugf("Matched rule: class=%s -> %s", rule.Class, rule.InputMethod)
+			logger.Tracef("Matched rule: class=%s -> %s", rule.Class, rule.InputMethod)
 			return rule.InputMethod
 		}
 
 		// If title is specified, both class and title must match
 		if s.matchPattern(rule.Title, title) {
-			logger.Debugf("Matched rule: class=%s, title=%s -> %s", rule.Class, rule.Title, rule.InputMethod)
+			logger.Tracef("Matched rule: class=%s, title=%s -> %s", rule.Class, rule.Title, rule.InputMethod)
 			return rule.InputMethod
 		}
 	}
 
-	logger.Debugf("No matching rule found, using default: %s", s.config.DefaultInputMethod)
+	logger.Tracef("No matching rule found, using default: %s", s.config.DefaultInputMethod)
 	return s.config.DefaultInputMethod
 }
 
@@ -447,13 +447,13 @@ func (s *Switcher) matchPattern(pattern, text string) bool {
 
 	// Try as regex first
 	if matched, err := regexp.MatchString(pattern, text); err == nil {
-		logger.Debugf("Regex match '%s' against '%s': %v", pattern, text, matched)
+		logger.Tracef("Regex match '%s' against '%s': %v", pattern, text, matched)
 		return matched
 	}
 
 	// Fallback to case-insensitive string contains matching
 	matched := strings.Contains(strings.ToLower(text), strings.ToLower(pattern))
-	logger.Debugf("String contains match '%s' against '%s': %v", pattern, text, matched)
+	logger.Tracef("String contains match '%s' against '%s': %v", pattern, text, matched)
 	return matched
 }
 
@@ -462,7 +462,7 @@ func (s *Switcher) Switch(targetMethod string) error {
 		return fmt.Errorf("fcitx5 is not enabled")
 	}
 
-	logger.Infof("Switching to input method: %s", targetMethod)
+	logger.Debugf("Switching to input method: %s", targetMethod)
 
 	if targetMethod == "english" {
 		return s.fcitx5.SwitchToEnglish()

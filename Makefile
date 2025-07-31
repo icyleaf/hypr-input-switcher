@@ -57,7 +57,7 @@ test:
 # Run with development config
 run-dev: clean build
 	@echo "Running with development config..."
-	@./$(BUILD_DIR)/$(BINARY_NAME) --config=./$(CONFIG_DIR)/default.yaml --log-level=debug
+	@./$(BUILD_DIR)/$(BINARY_NAME) --config=./$(CONFIG_DIR)/default.yaml --log-level=debug --watch
 
 # Create a snapshot release (for testing)
 snapshot:
