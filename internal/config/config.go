@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"hypr-input-switcher/pkg/logger"
 
@@ -13,11 +14,17 @@ import (
 )
 
 type Manager struct {
-	configPath string
-	config     *Config
-	mutex      sync.RWMutex
-	watcher    *fsnotify.Watcher
-	callbacks  []func(*Config)
+	configPath     string
+	config         *Config
+	mutex          sync.RWMutex
+	watcher        *fsnotify.Watcher
+	callbacks      []func(*Config)
+	callbacksMutex sync.RWMutex // Add this field
+
+	// Debounce related fields
+	debounceTimer *time.Timer
+	debounceMutex sync.Mutex
+	debounceDelay time.Duration
 }
 
 func NewManager(configPath string) (*Manager, error) {
@@ -41,6 +48,8 @@ func NewManager(configPath string) (*Manager, error) {
 	return &Manager{
 		configPath: configPath,
 		callbacks:  make([]func(*Config), 0),
+
+		debounceDelay: 200 * time.Millisecond, // 200ms debounce delay
 	}, nil
 }
 
@@ -163,6 +172,8 @@ func copyFile(src, dst string) error {
 
 // AddCallback adds a callback function to be called when config changes
 func (m *Manager) AddCallback(callback func(*Config)) {
+	m.callbacksMutex.Lock()
+	defer m.callbacksMutex.Unlock()
 	m.callbacks = append(m.callbacks, callback)
 }
 
@@ -196,6 +207,14 @@ func (m *Manager) StartWatching() error {
 
 // StopWatching stops watching the config file
 func (m *Manager) StopWatching() error {
+	// Clean up debounce timer
+	m.debounceMutex.Lock()
+	if m.debounceTimer != nil {
+		m.debounceTimer.Stop()
+		m.debounceTimer = nil
+	}
+	m.debounceMutex.Unlock()
+
 	if m.watcher != nil {
 		return m.watcher.Close()
 	}
@@ -210,55 +229,61 @@ func (m *Manager) watchLoop() {
 				return
 			}
 
-			// Check if it's our config file
-			if event.Name == m.configPath {
-				if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
-					logger.Infof("Config file changed: %s", event.Name)
-					m.reloadConfig()
-				}
+			// Only handle write and create events
+			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
+				logger.Debugf("Config file changed: %s", event.Name)
+				m.handleFileChangeDebounced()
 			}
 
 		case err, ok := <-m.watcher.Errors:
 			if !ok {
 				return
 			}
-			logger.Errorf("Config file watcher error: %v", err)
+			logger.Errorf("Config file watch error: %v", err)
 		}
 	}
 }
 
-func (m *Manager) reloadConfig() {
+// Debounced file change handler
+func (m *Manager) handleFileChangeDebounced() {
+	m.debounceMutex.Lock()
+	defer m.debounceMutex.Unlock()
+
+	// Cancel previous timer
+	if m.debounceTimer != nil {
+		m.debounceTimer.Stop()
+	}
+
+	// Set new timer
+	m.debounceTimer = time.AfterFunc(m.debounceDelay, func() {
+		m.handleFileChange()
+	})
+}
+
+// Handle actual file change
+func (m *Manager) handleFileChange() {
 	logger.Info("Reloading configuration...")
 
-	newConfig, err := LoadConfig(m.configPath)
+	newConfig, err := m.Load()
 	if err != nil {
 		logger.Errorf("Failed to reload config: %v", err)
 		return
 	}
 
-	m.mutex.Lock()
-	oldConfig := m.config
-	m.config = newConfig
-	m.mutex.Unlock()
-
 	logger.Info("Configuration reloaded successfully")
 
-	// Call all registered callbacks
-	for _, callback := range m.callbacks {
-		go func(cb func(*Config)) {
-			defer func() {
-				if r := recover(); r != nil {
-					logger.Errorf("Config callback panic: %v", r)
-				}
-			}()
-			cb(newConfig)
-		}(callback)
-	}
+	// Call all callback functions
+	m.callbacksMutex.RLock()
+	callbacks := make([]func(*Config), len(m.callbacks))
+	copy(callbacks, m.callbacks)
+	m.callbacksMutex.RUnlock()
 
-	// Log config changes
-	m.logConfigChanges(oldConfig, newConfig)
+	for _, callback := range callbacks {
+		go callback(newConfig)
+	}
 }
 
+// LogConfigChanges logs the changes between old and new config
 func (m *Manager) logConfigChanges(oldConfig, newConfig *Config) {
 	if oldConfig == nil {
 		return
