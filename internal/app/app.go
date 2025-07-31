@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"hypr-input-switcher/internal/config"
@@ -20,11 +21,19 @@ type Application struct {
 	switcher      *inputmethod.Switcher
 	notifier      *notification.Notifier
 	watchConfig   bool
+
+	// Add fields to manage the monitoring context
+	monitorCtx    context.Context
+	monitorCancel context.CancelFunc
+	monitorMutex  sync.Mutex
+	restartChan   chan struct{}
 }
 
 // NewApplication creates a new application instance
 func NewApplication() *Application {
-	return &Application{}
+	return &Application{
+		restartChan: make(chan struct{}, 1),
+	}
 }
 
 // Run starts the application
@@ -79,11 +88,64 @@ func (app *Application) Run(configPath string, watchConfig bool) error {
 			app.configManager.StopWatching()
 		}
 
+		// Cancel monitor context
+		app.monitorMutex.Lock()
+		if app.monitorCancel != nil {
+			app.monitorCancel()
+		}
+		app.monitorMutex.Unlock()
+
 		cancel()
 	}()
 
-	// Use switcher's monitoring loop instead of our own
-	return app.switcher.MonitorAndSwitch(ctx)
+	// Start monitoring loop with restart capability
+	return app.runMonitoringLoop(ctx)
+}
+
+// runMonitoringLoop handles the main monitoring with restart capability
+func (app *Application) runMonitoringLoop(ctx context.Context) error {
+	for {
+		// Create a new context for this monitoring session
+		app.monitorMutex.Lock()
+		app.monitorCtx, app.monitorCancel = context.WithCancel(ctx)
+		monitorCtx := app.monitorCtx
+		app.monitorMutex.Unlock()
+
+		// Start monitoring in a goroutine
+		errChan := make(chan error, 1)
+		go func() {
+			errChan <- app.switcher.MonitorAndSwitch(monitorCtx)
+		}()
+
+		// Wait for either completion, restart signal, or parent context cancellation
+		select {
+		case err := <-errChan:
+			if err != nil && ctx.Err() == nil {
+				return err
+			}
+			return nil
+
+		case <-app.restartChan:
+			logger.Info("Restarting monitoring loop with new configuration...")
+			// Cancel current monitoring
+			app.monitorMutex.Lock()
+			if app.monitorCancel != nil {
+				app.monitorCancel()
+			}
+			app.monitorMutex.Unlock()
+			// Wait for current monitoring to stop
+			<-errChan
+			// Continue to next iteration to restart
+
+		case <-ctx.Done():
+			app.monitorMutex.Lock()
+			if app.monitorCancel != nil {
+				app.monitorCancel()
+			}
+			app.monitorMutex.Unlock()
+			return nil
+		}
+	}
 }
 
 // onConfigChanged handles configuration changes
@@ -103,4 +165,11 @@ func (app *Application) onConfigChanged(newConfig *config.Config) {
 	app.switcher.SetNotifier(app.notifier)
 
 	logger.Info("Configuration applied successfully")
+
+	// Signal to restart monitoring loop
+	select {
+	case app.restartChan <- struct{}{}:
+	default:
+		// Channel is full, restart is already pending
+	}
 }
