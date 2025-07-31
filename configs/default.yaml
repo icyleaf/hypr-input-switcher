@@ -36,6 +36,7 @@ notifications:
   duration: 2000
   show_on_switch: true
   show_app_name: true
+  icon_path: "~/.local/share/hypr-input-switcher/icons"
   # Notification method configuration
   methods:
     - notify-send    # libnotify (GNOME, KDE, etc.)
@@ -52,13 +53,18 @@ display_names:
   chinese: 中文
   japanese: 日本語
 
-icons:
-  # Style: Flag emojis
-  english: "🇺🇸"   # US flag
-  chinese: "🇨🇳"   # Chinese flag
-  japanese: "🇯🇵"  # Japanese flag
+# icons:
+#   # Style: Combo of flag emojis and file paths
+#   english: "🇺🇸"
+#   chinese: "cn.svg"
+#   japanese: "/absolute/path/to/jp.png"
 
-  # Alternative style: Letter symbols
-  # english: "A"     # Simple letter
-  # chinese: "中"    # Chinese character
-  # japanese: "あ"   # Hiragana character
+#   # # Style: Flag emojis
+#   # english: "🇺🇸"   # US flag
+#   # chinese: "🇨🇳"   # Chinese flag
+#   # japanese: "🇯🇵"  # Japanese flag
+
+#   # Alternative style: Letter symbols
+#   # english: "A"     # Simple letter
+#   # chinese: "中"    # Chinese character
+#   # japanese: "あ"   # Hiragana character

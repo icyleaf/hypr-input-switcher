@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
 	"hypr-input-switcher/internal/app"
 	"hypr-input-switcher/pkg/logger"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // Version information (set at build time)
@@ -39,7 +39,6 @@ var versionCmd = &cobra.Command{
 }
 
 func init() {
-	// Add version command
 	rootCmd.AddCommand(versionCmd)
 
 	// Get default config path
