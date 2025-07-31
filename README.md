@@ -313,6 +313,7 @@ notifications:
   duration: 2000
   show_on_switch: true
   show_app_name: true
+  icon_path: "~/.local/share/hypr-input-switcher/icons"
   methods:
     - hyprctl          # Use Hyprland's native notifications first
     - notify-send      # Fallback to libnotify
@@ -328,9 +329,9 @@ display_names:
 
 # Icons (supports emoji and icon names)
 icons:
-  english: "🇺🇸"   # US flag
-  chinese: "🇨🇳"   # Chinese flag
-  japanese: "🇯🇵"  # Japanese flag
+  english: "🇺🇸"
+  chinese: "cn.svg"
+  japanese: "/absolute/path/to/jp.png"
 ```
 
 ## Hyprland Integration

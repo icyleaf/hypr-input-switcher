@@ -2,7 +2,7 @@
 
 # Makefile for Hypr Input Switcher Project
 
-.PHONY: build install clean test release snapshot
+.PHONY: prepare-icons build install clean test release snapshot
 
 # Build variables
 BINARY_NAME=hypr-input-switcher
@@ -20,8 +20,14 @@ LDFLAGS = -ldflags "-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X
 # Default target
 all: build
 
+# Prepare icons for embedding (used during development)
+prepare-icons:
+	@echo "Preparing icons for embedding..."
+	@chmod +x scripts/prepare-icons.sh
+	@./scripts/prepare-icons.sh
+
 # Build the binary
-build:
+build: prepare-icons
 	@echo "Building $(BINARY_NAME) $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
 	@go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/hypr-input-switcher
@@ -48,6 +54,8 @@ clean:
 	@echo "Cleaning..."
 	@rm -rf $(BUILD_DIR)
 	@rm -rf dist/
+	@rm -rf bin/
+	@rm -rf internal/notification/icons/
 
 # Run tests
 test:
@@ -74,3 +82,17 @@ version:
 	@echo "Version: $(VERSION)"
 	@echo "Commit: $(COMMIT)"
 	@echo "Date: $(DATE)"
+
+# Check embedded icons status
+check-icons:
+	@echo "Checking embedded icons..."
+	@if [ -d "internal/notification/icons" ]; then \
+		echo "Found $(shell ls internal/notification/icons | wc -l) icon files:"; \
+		ls -la internal/notification/icons/; \
+	else \
+		echo "No icons directory found. Run 'make prepare-icons' first."; \
+	fi
+
+# Development build (including icons)
+dev: prepare-icons
+	@go run ./cmd/hypr-input-switcher --log-level debug

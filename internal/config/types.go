@@ -30,13 +30,14 @@ type Fcitx5Config struct {
 
 // NotificationConfig represents notification configuration
 type NotificationConfig struct {
-	Enabled         bool     `json:"enabled" yaml:"enabled"`
-	Duration        int      `json:"duration" yaml:"duration"`
+	Enabled         bool     `yaml:"enabled"`
+	Duration        int      `yaml:"duration"`
 	ShowOnSwitch    bool     `json:"show_on_switch" yaml:"show_on_switch"`
 	ShowAppName     bool     `json:"show_app_name" yaml:"show_app_name"`
-	Methods         []string `json:"methods" yaml:"methods"`
-	ForceMethod     string   `json:"force_method" yaml:"force_method"`
-	DisabledMethods []string `json:"disabled_methods" yaml:"disabled_methods"`
+	Methods         []string `yaml:"methods"`
+	DisabledMethods []string `yaml:"disabled_methods"`
+	ForceMethod     string   `yaml:"force_method"`
+	IconPath        string   `yaml:"icon_path"`
 }
 
 // WindowInfo represents active window information
