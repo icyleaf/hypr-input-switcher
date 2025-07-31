@@ -24,7 +24,7 @@ builds:
 archives:
   - format: tar.gz
     name_template: >-
-      {{ .ProjectName }}_
+      {{ .ProjectName }}_{{ .Version }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
@@ -66,7 +66,7 @@ release:
   github:
     owner: icyleaf
     name: hypr-input-switcher
-  name_template: "{{.ProjectName}}-v{{.Version}}"
+  name_template: "{{.ProjectName}} {{.Version}}"
   prerelease: auto
 
 snapshot:
@@ -109,7 +109,7 @@ aurs:
       install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/hypr-input-switcher/README.md"
 
 nfpms:
-  - file_name_template: '{{ .ProjectName }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+  - file_name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
     homepage: https://github.com/icyleaf/hypr-input-switcher
     description: "Smart input method switcher for Hyprland"
     maintainer: icyleaf <icyleaf.cn@gmail.com>

@@ -36,9 +36,9 @@ jobs:
       - name: Generate snapshot publish information
         id: version
         run: |
-          TIMESTAMP=$(date +'%Y%m%d-%H%M%S')
+          TIMESTAMP=$(date +'%Y%m%d%H%M%S')
           SHORT_SHA=$(git rev-parse --short HEAD)
-          SNAPSHOT_VERSION="snapshot.${TIMESTAMP}.${SHORT_SHA}"
+          SNAPSHOT_VERSION="SNAPSHOT-${TIMESTAMP}-${SHORT_SHA}"
           echo "version=${SNAPSHOT_VERSION}" >> $GITHUB_OUTPUT
           echo "timestamp=$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_OUTPUT
 
@@ -64,7 +64,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: snapshot
-          name: "Snapshot Release ${{ steps.version.outputs.version }}"
+          name: "hypr-input-switcher ${{ steps.version.outputs.version }}"
           body: |
             🔄 **Snapshot Release**
 
