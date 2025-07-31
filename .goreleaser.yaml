@@ -42,7 +42,6 @@ changelog:
   sort: asc
   filters:
     exclude:
-      - '^docs:'
       - '^test:'
       - '^ci:'
       - '^chore:'
@@ -57,6 +56,9 @@ changelog:
     - title: 'Performance improvements'
       regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
       order: 2
+    - title: 'Documentation'
+      regexp: '^.*?doc(\([[:word:]]+\))??!?:.+$'
+      order: 3
     - title: Others
       order: 999
 
