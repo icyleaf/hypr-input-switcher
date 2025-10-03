@@ -4,9 +4,52 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import Heading from '@theme/Heading';
-import React, { ReactElement } from 'react';
+import React, { ReactElement, useEffect, useState } from 'react';
 
 import styles from './index.module.css';
+
+function TerminalSwitcher() {
+  const languages = [
+    { label: 'English (us)', icon: '🇺🇸' },
+    { label: 'English (uk)', icon: '🇬🇧' },
+    { label: '日本語 (mozc)', icon: '🇯🇵' },
+    { label: '한국어 (hangul)', icon: '🇰🇷' },
+    { label: 'Tiếng Việt (telex)', icon: '🇻🇳' },
+    { label: 'ไทย (kedmanee)', icon: '🇹🇭' },
+    { label: 'Français (azerty)', icon: '🇫🇷' },
+    { label: 'Deutsch (qwertz)', icon: '🇩🇪' },
+    { label: 'Español (es)', icon: '🇪🇸' },
+    { label: 'Português (br)', icon: '🇧🇷' },
+    { label: 'Italiano (it)', icon: '🇮🇹' },
+    { label: 'Русский (ru)', icon: '🇷🇺' },
+    { label: 'Українська (ua)', icon: '🇺🇦' },
+    { label: 'Polski (pl)', icon: '🇵🇱' },
+    { label: 'Türkçe (tr)', icon: '🇹🇷' },
+    { label: 'Ελληνικά (el)', icon: '🇬🇷' },
+    { label: 'Nederlands (nl)', icon: '🇳🇱' },
+    { label: 'Magyar (hu)', icon: '🇭🇺' },
+    { label: 'Čeština (cz)', icon: '🇨🇿' },
+    { label: 'Română (ro)', icon: '🇷🇴' },
+    { label: 'עברית (he)', icon: '🇮🇱' },
+    { label: 'العربية (ar)', icon: '🇸🇦' },
+    { label: 'हिन्दी (hi)', icon: '🇮🇳' },
+    { label: '中文 (rime)', icon: '🇨🇳' },
+  ];
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIndex((prev) => (prev + 1) % languages.length);
+    }, 1400);
+    return () => clearTimeout(timer);
+  }, [index, languages.length]);
+
+  return (
+    <span className={styles.output}>
+      {languages[index].icon} Switching to: {languages[index].label}
+    </span>
+  );
+}
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
@@ -58,13 +101,10 @@ function HomepageHeader() {
                   <span className={styles.output}>🎯 Detected window: firefox</span>
                 </div>
                 <div className={styles.terminalLine}>
-                  <span className={styles.output}>🔄 Switching to: 中文 (rime)</span>
+                  <TerminalSwitcher />
                 </div>
                 <div className={styles.terminalLine}>
                   <span className={styles.output}>✅ Input method switched successfully</span>
-                </div>
-                <div className={styles.terminalLine}>
-                  <span className={styles.cursor}>█</span>
                 </div>
               </div>
             </div>
