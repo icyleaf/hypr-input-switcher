@@ -95,7 +95,15 @@ function HomepageHeader() {
               </div>
               <div className={styles.terminalBody}>
                 <div className={styles.terminalLine}>
-                  <span className={styles.prompt}>$</span> hypr-input-switcher --watch
+                  <span className={styles.prompt}>$</span> hypr-input-switcher
+                </div>
+                <div className={styles.terminalLine}>
+                  <span className={styles.output}>🎯 Detected window: vim</span>
+                </div>
+                <div className={styles.terminalLine}>
+                  <span className={styles.output}>
+                    🇺🇸 Switching to: English
+                  </span>
                 </div>
                 <div className={styles.terminalLine}>
                   <span className={styles.output}>🎯 Detected window: firefox</span>
