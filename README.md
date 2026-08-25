@@ -295,6 +295,7 @@ client_rules:
     input_method: english
 
 # Default input method when no rules match
+# Use "keep" to preserve the current input method instead
 default_input_method: english
 
 # Fcitx5 configuration
@@ -484,6 +485,22 @@ client_rules:
   # Match terminals
   - class: "^(kitty|alacritty|wezterm)$"
     input_method: english
+```
+
+### Keeping the Current Input Method
+
+Use the reserved value `keep` when a window should preserve whichever input
+method is currently active. It does not need to be declared in `input_methods`
+or `rime_schemas`.
+
+```yaml
+client_rules:
+  # Keep the current input method when switching to Chrome
+  - class: google-chrome
+    input_method: keep
+
+# Keep the current input method for every window not matched above
+default_input_method: keep
 ```
 
 ### Custom Notification Methods

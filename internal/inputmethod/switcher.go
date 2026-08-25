@@ -236,13 +236,21 @@ func (s *Switcher) processWindowChange(clientInfo *ClientInfo) error {
 	// Update current client info
 	s.currentClient = clientInfo
 
-	// Get current input method status
-	currentIM := s.GetCurrent()
-
 	// Determine target input method
 	targetIM := s.getTargetInputMethod(clientInfo)
 
 	logger.Debugf("Window changed: %s - %s (address: %s)", clientInfo.Class, clientInfo.Title, clientInfo.Address)
+
+	// A keep target preserves the active input method without querying or
+	// invoking the configured input method backend.
+	if targetIM == config.KeepInputMethod {
+		logger.Debugf("Keeping current input method for: %s - %s", clientInfo.Class, clientInfo.Title)
+		return nil
+	}
+
+	// Get current input method status
+	currentIM := s.GetCurrent()
+
 	logger.Debugf("Current IM: %s -> Target IM: %s", currentIM, targetIM)
 
 	// If input method needs to be switched
@@ -458,6 +466,11 @@ func (s *Switcher) matchPattern(pattern, text string) bool {
 }
 
 func (s *Switcher) Switch(targetMethod string) error {
+	if targetMethod == config.KeepInputMethod {
+		logger.Debug("Keeping current input method")
+		return nil
+	}
+
 	if !s.config.Fcitx5.Enabled || s.fcitx5 == nil {
 		return fmt.Errorf("fcitx5 is not enabled")
 	}
