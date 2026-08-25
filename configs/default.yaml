@@ -24,6 +24,7 @@ client_rules:
     input_method: english
   - class: "^(org.telegram.desktop)$"
     input_method: chinese
+# Set this to "keep" to preserve the current input method when no rule matches.
 default_input_method: english
 fcitx5:
   enabled: true

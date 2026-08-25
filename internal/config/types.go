@@ -1,5 +1,8 @@
 package config
 
+// KeepInputMethod is a reserved input method value that disables switching.
+const KeepInputMethod = "keep"
+
 // Config represents the application configuration
 type Config struct {
 	Version            int                `yaml:"version" json:"version"`
