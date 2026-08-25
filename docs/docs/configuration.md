@@ -15,6 +15,10 @@ mkdir -p ~/.config/hypr-input-switcher
 cp /usr/share/hypr-input-switcher/default.yaml ~/.config/hypr-input-switcher/config.yaml
 ```
 
+:::tip Visual Rule Configuration
+If you are running **Omarchy Linux (4.0+)**, you can configure and manage all your window rules visually with a live window picker using the [**Omarchy Plugin (GUI)**](omarchy-plugin.md).
+:::
+
 ## Basic Configuration
 
 Here's a minimal configuration example:

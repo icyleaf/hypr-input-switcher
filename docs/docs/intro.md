@@ -42,6 +42,11 @@ Hypr Input Switcher is a lightweight, intelligent application that automatically
 - Debugging tools
 - Extensive documentation
 
+### 🎨 **Omarchy Linux Overlay**
+- Official visual GUI management overlay for [Omarchy](https://omarchy.org/) 4.0+ (Quickshell)
+- Visual rule configuration, live window picker, and system diagnostics
+- Check out the [Omarchy Plugin Guide](omarchy-plugin.md) for details
+
 ## How It Works
 
 ```mermaid

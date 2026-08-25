@@ -17,6 +17,7 @@ A smart input method switcher for Hyprland that automatically switches input met
 - 🛠 **Multiple Input Methods**: Full support for Fcitx5, Rime
 - 📊 **Comprehensive Logging**: Configurable log levels with multiple output options
 - 🌐 **Cross-Platform Icons**: Support for both emoji and traditional desktop icons
+- 🎨 **Omarchy GUI Plugin**: Native Quickshell visual overlay for Omarchy 4.0 with live window picking and rule management
 
 ## Prerequisites
 
@@ -236,9 +237,38 @@ exec-once = hypr-input-switcher --log-level=debug --watch
    ```
 
 4. **Enable hot-reload for development:**
-   ```bash
-   hypr-input-switcher --watch --log-level=debug
-   ```
+    ```bash
+    hypr-input-switcher --watch --log-level=debug
+    ```
+
+## Omarchy Plugin (GUI Management)
+
+For users running the **[Omarchy](https://omarchy.org/)** Linux distribution (4.0+), an official visual rule configuration overlay is available: [**omarchy-hypr-input-switcher**](https://github.com/icyleaf/omarchy-hypr-input-switcher).
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/icyleaf/omarchy-hypr-input-switcher/main/preview.png" alt="Omarchy Plugin Preview" width="80%">
+</div>
+
+### Highlights
+
+- 🪟 **Visual Rule Management**: View, add, edit, reorder, and remove window rules without manually editing YAML.
+- 🎯 **Native Window Picker**: Click-to-pick any active window on screen using `slurp` to automatically populate class and title.
+- ⌨️ **Input Method & Rime Schema Management**: Manage display names, backends, and inline Rime schemas.
+- 🔍 **Live System Diagnostics**: Real-time status indicator showing binary, version, daemon process state, and a 1-click `▶ Start Service` button.
+- ⚡ **Zero Runtime Dependencies**: 100% Pure Quickshell & JavaScript (No Python required).
+- 💾 **Hot Sync**: Directly syncs to `~/.config/hypr-input-switcher/config.yaml` with instant hot-reloading.
+
+### Quick Installation
+
+```bash
+# Install via Omarchy CLI
+omarchy plugin install https://github.com/icyleaf/omarchy-hypr-input-switcher
+
+# Or toggle the overlay directly once installed
+omarchy-shell overlay toggle icyleaf.hypr-input-switcher
+```
+
+For more details, check out the [Omarchy Plugin Documentation](docs/docs/omarchy-plugin.md).
 
 ## Configuration
 

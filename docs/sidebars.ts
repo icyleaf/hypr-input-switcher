@@ -17,6 +17,7 @@ const sidebars: SidebarsConfig = {
     'intro',
     'installation',
     'configuration',
+    'omarchy-plugin',
   ],
 };
 

@@ -226,6 +226,16 @@ systemctl --user enable hypr-input-switcher.service
 systemctl --user start hypr-input-switcher.service
 ```
 
+## Omarchy Integration
+
+If you are using the [Omarchy](https://omarchy.org/) Linux distribution (v4.0+), you can install the official visual configuration overlay plugin:
+
+```bash
+omarchy plugin install https://github.com/icyleaf/omarchy-hypr-input-switcher
+```
+
+This provides a native Quickshell GUI overlay with an interactive window picker, rule priority reordering, and live service status. See the [Omarchy Plugin Guide](omarchy-plugin.md) for details.
+
 ## Troubleshooting
 
 ### Common Issues
