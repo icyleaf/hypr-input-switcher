@@ -59,6 +59,7 @@ windowrulev2 = float,class:^(org.fcitx.*)$
 #### For Fcitx5 (Recommended)
 
 1. **Install Fcitx5:**
+
    ```bash
    # Arch Linux
    sudo pacman -S fcitx5 fcitx5-gtk fcitx5-qt fcitx5-configtool
@@ -71,6 +72,7 @@ windowrulev2 = float,class:^(org.fcitx.*)$
    ```
 
 2. **Install Input Methods:**
+
    ```bash
    # Chinese (Rime)
    sudo pacman -S fcitx5-rime  # Arch
@@ -86,6 +88,7 @@ windowrulev2 = float,class:^(org.fcitx.*)$
    ```
 
 3. **Configure Fcitx5:**
+
    ```bash
    # Run configuration tool
    fcitx5-configtool
@@ -130,6 +133,7 @@ For testing the latest development version, you can download snapshot builds fro
 2. **Click on the latest successful build from the `main` branch**
 3. **Download the artifact named `hypr-input-switcher-snapshot-YYYY-MM-DD`**
 4. **Extract and install:**
+
    ```bash
    # Unzip the downloaded artifact
    unzip hypr-input-switcher-snapshot-*.zip
@@ -180,17 +184,20 @@ sudo rpm -i hypr-input-switcher_x86_64.rpm
 ### From Source
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/icyleaf/hypr-input-switcher.git
    cd hypr-input-switcher
    ```
 
 2. **Install dependencies:**
+
    ```bash
    go mod tidy
    ```
 
 3. **Build and install:**
+
    ```bash
    # System-wide installation
    mise run build
@@ -218,6 +225,7 @@ exec-once = hypr-input-switcher --log-level=debug --watch
 ## Quick Start
 
 1. **Ensure Hyprland is running:**
+
    ```bash
    # Check if Hyprland is active
    echo $HYPRLAND_INSTANCE_SIGNATURE
@@ -227,19 +235,22 @@ exec-once = hypr-input-switcher --log-level=debug --watch
    ```
 
 2. **Run with default settings:**
+
    ```bash
    hypr-input-switcher
    ```
 
 3. **Run with custom configuration:**
+
    ```bash
    hypr-input-switcher --config=/path/to/your/config.yaml
    ```
 
 4. **Enable hot-reload for development:**
-    ```bash
-    hypr-input-switcher --watch --log-level=debug
-    ```
+
+   ```bash
+   hypr-input-switcher --watch --log-level=debug
+   ```
 
 ## Omarchy Plugin (GUI Management)
 
@@ -311,27 +322,27 @@ input_methods:
 
 # Application-specific rules (use hyprctl to find class names)
 client_rules:
-  - class: firefox                    # Firefox browser
+  - class: firefox # Firefox browser
     input_method: chinese
-  - class: google-chrome              # Chrome browser
+  - class: google-chrome # Chrome browser
     input_method: chinese
-  - class: code                       # VS Code
+  - class: code # VS Code
     input_method: english
-  - class: kitty                      # Kitty terminal
+  - class: kitty # Kitty terminal
     input_method: english
-  - class: org.wezfurlong.wezterm     # WezTerm terminal
+  - class: org.wezfurlong.wezterm # WezTerm terminal
     input_method: english
   - class: "^(org.telegram.desktop)$" # Telegram (regex)
     input_method: chinese
-  - class: firefox                    # Firefox with specific title
+  - class: firefox # Firefox with specific title
     title: ".*GitHub.*"
     input_method: english
 
 # Layer-shell overlay rules (match by namespace, e.g. Omarchy plugins)
 layer_rules:
-  - namespace: icyleaf-calculator     # Raycast-style calculator overlay
+  - namespace: omarchy-menu # Omarchy Launcher
     input_method: english
-  - namespace: omarchy-emojis         # Emoji picker overlay
+  - namespace: icyleaf-calculator # icyleaf calculator
     input_method: english
 
 # Default input method when no rules match
@@ -345,8 +356,8 @@ fcitx5:
 
 # Rime schema mappings
 rime_schemas:
-  chinese: rime_frost      # Your Rime schema name
-  japanese: jaroomaji      # Japanese input schema
+  chinese: rime_frost # Your Rime schema name
+  japanese: jaroomaji # Japanese input schema
 
 # Notification settings
 notifications:
@@ -356,11 +367,11 @@ notifications:
   show_app_name: true
   icon_path: "~/.local/share/hypr-input-switcher/icons"
   methods:
-    - hyprctl          # Use Hyprland's native notifications first
-    - notify-send      # Fallback to libnotify
-    - dunstify         # Dunst notifications
-  force_method: ""          # Force specific method
-  disabled_methods: []      # Disable specific methods
+    - hyprctl # Use Hyprland's native notifications first
+    - notify-send # Fallback to libnotify
+    - dunstify # Dunst notifications
+  force_method: "" # Force specific method
+  disabled_methods: [] # Disable specific methods
 
 # Display names for input methods
 display_names:
@@ -423,11 +434,11 @@ automatically.
 
 ```yaml
 layer_rules:
-  - namespace: icyleaf-calculator   # Raycast-style calculator overlay
+  - namespace: icyleaf-calculator # Raycast-style calculator overlay
     input_method: english
-  - namespace: omarchy-emojis       # Emoji picker overlay
+  - namespace: omarchy-emojis # Emoji picker overlay
     input_method: english
-  - namespace: icyleaf-clipboard    # `keep` lets the overlay inherit the IM
+  - namespace: icyleaf-clipboard # `keep` lets the overlay inherit the IM
     input_method: keep
 ```
 
@@ -470,6 +481,7 @@ watch -n 1 'hyprctl activewindow | grep -E "(class|title):"'
 ```
 
 Common application classes:
+
 - **Browsers**: `firefox`, `google-chrome`, `chromium`
 - **Terminals**: `kitty`, `alacritty`, `org.wezfurlong.wezterm`
 - **Editors**: `code`, `nvim`, `emacs`
@@ -612,12 +624,12 @@ Configure notification priority and methods:
 ```yaml
 notifications:
   methods:
-    - hyprctl          # Hyprland native (recommended for Hyprland)
-    - swaync-client    # SwayNC
-    - dunstify         # Dunst
-    - notify-send      # libnotify fallback
-  force_method: "hyprctl"        # Force Hyprland notifications
-  disabled_methods: ["mako"]     # Disable specific methods
+    - hyprctl # Hyprland native (recommended for Hyprland)
+    - swaync-client # SwayNC
+    - dunstify # Dunst
+    - notify-send # libnotify fallback
+  force_method: "hyprctl" # Force Hyprland notifications
+  disabled_methods: ["mako"] # Disable specific methods
 ```
 
 ## Development

@@ -48,13 +48,11 @@ client_rules:
 # match them. List namespaces with `hyprctl layers`. An open layer rule takes
 # precedence over the active window and is released when the overlay closes.
 #
-# layer_rules:
-#   - namespace: icyleaf-calculator   # Raycast-style calculator overlay
-#     input_method: english
-#   - namespace: omarchy-emojis       # Emoji picker overlay
-#     input_method: english
-#   - namespace: icyleaf-clipboard    # `keep` inherits the current input method
-#     input_method: keep
+layer_rules:
+  - namespace: omarchy-menu
+    input_method: english
+  - namespace: icyleaf-calculator
+    input_method: english
 
 # Input method used when no rule matches. Set to "keep" to leave the current
 # input method untouched instead.
