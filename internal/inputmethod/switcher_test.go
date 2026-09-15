@@ -63,8 +63,8 @@ func TestGetTargetInputMethod(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := switcher.getTargetInputMethod(tt.client); got != tt.want {
-				t.Fatalf("getTargetInputMethod() = %q, want %q", got, tt.want)
+			if got := switcher.resolveTarget(tt.client).inputMethod; got != tt.want {
+				t.Fatalf("resolveTarget() = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -87,16 +87,18 @@ func TestGetTargetInputMethodLayerRules(t *testing.T) {
 	kitty := &ClientInfo{Class: "kitty", Title: "shell"}
 
 	tests := []struct {
-		name   string
-		open   []string
-		client *ClientInfo
-		want   string
+		name          string
+		open          []string
+		client        *ClientInfo
+		want          string
+		wantNamespace string
 	}{
 		{
-			name:   "open layer overrides matching client rule",
-			open:   []string{"icyleaf-calculator"},
-			client: kitty,
-			want:   "english",
+			name:          "open layer overrides matching client rule",
+			open:          []string{"icyleaf-calculator"},
+			client:        kitty,
+			want:          "english",
+			wantNamespace: "icyleaf-calculator",
 		},
 		{
 			name:   "no open layer falls back to client rule",
@@ -111,16 +113,18 @@ func TestGetTargetInputMethodLayerRules(t *testing.T) {
 			want:   "chinese",
 		},
 		{
-			name:   "nil client uses layer rule when layer is open",
-			open:   []string{"omarchy-emojis"},
-			client: nil,
-			want:   "japanese",
+			name:          "nil client uses layer rule when layer is open",
+			open:          []string{"omarchy-emojis"},
+			client:        nil,
+			want:          "japanese",
+			wantNamespace: "omarchy-emojis",
 		},
 		{
-			name:   "first matching layer rule wins",
-			open:   []string{"omarchy-emojis", "icyleaf-calculator"},
-			client: kitty,
-			want:   "english",
+			name:          "first matching layer rule wins",
+			open:          []string{"omarchy-emojis", "icyleaf-calculator"},
+			client:        kitty,
+			want:          "english",
+			wantNamespace: "icyleaf-calculator",
 		},
 	}
 
@@ -130,8 +134,12 @@ func TestGetTargetInputMethodLayerRules(t *testing.T) {
 			for _, ns := range tt.open {
 				switcher.layers.open(ns)
 			}
-			if got := switcher.getTargetInputMethod(tt.client); got != tt.want {
-				t.Fatalf("getTargetInputMethod() = %q, want %q", got, tt.want)
+			got := switcher.resolveTarget(tt.client)
+			if got.inputMethod != tt.want {
+				t.Fatalf("resolveTarget().inputMethod = %q, want %q", got.inputMethod, tt.want)
+			}
+			if got.layerNamespace != tt.wantNamespace {
+				t.Fatalf("resolveTarget().layerNamespace = %q, want %q", got.layerNamespace, tt.wantNamespace)
 			}
 		})
 	}
@@ -150,8 +158,8 @@ func TestGetTargetInputMethodLayerNamespaceIsExactMatch(t *testing.T) {
 
 	switcher.layers.open("omarchy-bar")
 
-	if got := switcher.getTargetInputMethod(&ClientInfo{Class: "kitty"}); got != "chinese" {
-		t.Fatalf("getTargetInputMethod() = %q, want %q (namespace must match exactly)", got, "chinese")
+	if got := switcher.resolveTarget(&ClientInfo{Class: "kitty"}).inputMethod; got != "chinese" {
+		t.Fatalf("resolveTarget() = %q, want %q (namespace must match exactly)", got, "chinese")
 	}
 }
 
@@ -168,8 +176,8 @@ func TestGetTargetInputMethodLayerRuleKeep(t *testing.T) {
 
 	switcher.layers.open("icyleaf-calculator")
 
-	if got := switcher.getTargetInputMethod(&ClientInfo{Class: "kitty"}); got != config.KeepInputMethod {
-		t.Fatalf("getTargetInputMethod() = %q, want %q", got, config.KeepInputMethod)
+	if got := switcher.resolveTarget(&ClientInfo{Class: "kitty"}).inputMethod; got != config.KeepInputMethod {
+		t.Fatalf("resolveTarget() = %q, want %q", got, config.KeepInputMethod)
 	}
 }
 
@@ -187,18 +195,18 @@ func TestLayerRefcountGatesOverride(t *testing.T) {
 
 	switcher.layers.open("icyleaf-calculator")
 	switcher.layers.open("icyleaf-calculator")
-	if got := switcher.getTargetInputMethod(client); got != "english" {
-		t.Fatalf("with two instances open: getTargetInputMethod() = %q, want %q", got, "english")
+	if got := switcher.resolveTarget(client).inputMethod; got != "english" {
+		t.Fatalf("with two instances open: resolveTarget() = %q, want %q", got, "english")
 	}
 
 	switcher.layers.close("icyleaf-calculator")
-	if got := switcher.getTargetInputMethod(client); got != "english" {
-		t.Fatalf("with one instance still open: getTargetInputMethod() = %q, want %q", got, "english")
+	if got := switcher.resolveTarget(client).inputMethod; got != "english" {
+		t.Fatalf("with one instance still open: resolveTarget() = %q, want %q", got, "english")
 	}
 
 	switcher.layers.close("icyleaf-calculator")
-	if got := switcher.getTargetInputMethod(client); got != "chinese" {
-		t.Fatalf("with all instances closed: getTargetInputMethod() = %q, want %q", got, "chinese")
+	if got := switcher.resolveTarget(client).inputMethod; got != "chinese" {
+		t.Fatalf("with all instances closed: resolveTarget() = %q, want %q", got, "chinese")
 	}
 }
 
@@ -215,8 +223,8 @@ func TestLayerTrackerIgnoresUnknownClose(t *testing.T) {
 
 	switcher.layers.close("never-opened")
 
-	if got := switcher.getTargetInputMethod(&ClientInfo{Class: "kitty"}); got != "chinese" {
-		t.Fatalf("getTargetInputMethod() = %q, want %q", got, "chinese")
+	if got := switcher.resolveTarget(&ClientInfo{Class: "kitty"}).inputMethod; got != "chinese" {
+		t.Fatalf("resolveTarget() = %q, want %q", got, "chinese")
 	}
 }
 

@@ -323,7 +323,7 @@ func (s *Switcher) applyResolution(resolution targetResolution, clientInfo *Clie
 	targetIM := resolution.inputMethod
 
 	if targetIM == config.KeepInputMethod {
-		logger.Debugf("Keeping current input method")
+		logger.Debug("Keeping current input method")
 		return nil
 	}
 
@@ -494,10 +494,6 @@ func (s *Switcher) GetCurrent() string {
 	}
 
 	return currentIM
-}
-
-func (s *Switcher) getTargetInputMethod(clientInfo *ClientInfo) string {
-	return s.resolveTarget(clientInfo).inputMethod
 }
 
 // targetResolution is the outcome of matching the current focus (an open layer
