@@ -324,6 +324,13 @@ client_rules:
     title: ".*GitHub.*"
     input_method: english
 
+# Layer-shell overlay rules (match by namespace, e.g. Omarchy plugins)
+layer_rules:
+  - namespace: icyleaf-calculator     # Raycast-style calculator overlay
+    input_method: english
+  - namespace: omarchy-emojis         # Emoji picker overlay
+    input_method: english
+
 # Default input method when no rules match
 # Use "keep" to preserve the current input method instead
 default_input_method: english
@@ -392,6 +399,57 @@ You can match windows based on:
 - **class**: Application class name (most common)
 - **title**: Window title (optional, supports regex)
 - **address**: Window address (advanced usage)
+
+### Layer Rules (Layer-shell Overlays)
+
+Some tools are not windows at all. Omarchy plugins such as the calculator and
+emoji picker are **layer-shell surfaces**: Hyprland anchors them to an output
+instead of managing them as a toplevel window. That has two consequences:
+
+- They never appear in `hyprctl clients` and can never become the active window,
+  so a `windowrule` or a `client_rules` entry keyed on `class`/`title` will never
+  match them.
+- They are identified by their **namespace** instead, and Hyprland announces them
+  on the event socket with `openlayer` / `closelayer`.
+
+Use `layer_rules` to switch the input method while such a surface is open. Each
+rule matches one namespace **exactly** (no regex) and is evaluated before
+`client_rules`, so an open overlay takes precedence over the window underneath.
+When the overlay closes, the rules for the window underneath are re-applied
+automatically.
+
+```yaml
+layer_rules:
+  - namespace: icyleaf-calculator   # Raycast-style calculator overlay
+    input_method: english
+  - namespace: omarchy-emojis       # Emoji picker overlay
+    input_method: english
+  - namespace: icyleaf-clipboard    # `keep` lets the overlay inherit the IM
+    input_method: keep
+```
+
+The same namespace can be open on several monitors at once; the rule stays in
+effect until the last instance closes.
+
+#### Finding Layer Namespaces
+
+`layer_rules` matches the namespace, not the window class. To list the currently
+open layer surfaces and their namespaces:
+
+```bash
+hyprctl layers
+```
+
+To watch open/close events live:
+
+```bash
+# Replace with your own socket path
+socat -u UNIX-CONNECT:"$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock" -
+```
+
+You will see lines such as `openlayer>>icyleaf-calculator`. Common Omarchy
+namespaces are `omarchy-bar`, `omarchy-background`, `omarchy-osd`, and the
+per-plugin namespaces like `icyleaf-calculator`.
 
 ### Finding Window Classes
 

@@ -24,6 +24,14 @@ client_rules:
     input_method: english
   - class: "^(org.telegram.desktop)$"
     input_method: chinese
+# Layer-shell overlays (e.g. Omarchy plugins) are matched by namespace, not by
+# window class. See the README for how to discover namespaces with
+# `hyprctl layers`.
+# layer_rules:
+#   - namespace: icyleaf-calculator
+#     input_method: english
+#   - namespace: omarchy-emojis
+#     input_method: english
 # Set this to "keep" to preserve the current input method when no rule matches.
 default_input_method: english
 fcitx5:

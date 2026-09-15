@@ -70,6 +70,156 @@ func TestGetTargetInputMethod(t *testing.T) {
 	}
 }
 
+func TestGetTargetInputMethodLayerRules(t *testing.T) {
+	newSwitcher := func() *Switcher {
+		return NewSwitcher(&config.Config{
+			DefaultInputMethod: "english",
+			LayerRules: []config.LayerRule{
+				{Namespace: "icyleaf-calculator", InputMethod: "english"},
+				{Namespace: "omarchy-emojis", InputMethod: "japanese"},
+			},
+			ClientRules: []config.ClientRule{
+				{Class: "^kitty$", InputMethod: "chinese"},
+			},
+		})
+	}
+
+	kitty := &ClientInfo{Class: "kitty", Title: "shell"}
+
+	tests := []struct {
+		name   string
+		open   []string
+		client *ClientInfo
+		want   string
+	}{
+		{
+			name:   "open layer overrides matching client rule",
+			open:   []string{"icyleaf-calculator"},
+			client: kitty,
+			want:   "english",
+		},
+		{
+			name:   "no open layer falls back to client rule",
+			open:   nil,
+			client: kitty,
+			want:   "chinese",
+		},
+		{
+			name:   "unmatched open layer does not override client rule",
+			open:   []string{"omarchy-osd"},
+			client: kitty,
+			want:   "chinese",
+		},
+		{
+			name:   "nil client uses layer rule when layer is open",
+			open:   []string{"omarchy-emojis"},
+			client: nil,
+			want:   "japanese",
+		},
+		{
+			name:   "first matching layer rule wins",
+			open:   []string{"omarchy-emojis", "icyleaf-calculator"},
+			client: kitty,
+			want:   "english",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			switcher := newSwitcher()
+			for _, ns := range tt.open {
+				switcher.layers.open(ns)
+			}
+			if got := switcher.getTargetInputMethod(tt.client); got != tt.want {
+				t.Fatalf("getTargetInputMethod() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetTargetInputMethodLayerNamespaceIsExactMatch(t *testing.T) {
+	switcher := NewSwitcher(&config.Config{
+		DefaultInputMethod: "english",
+		LayerRules: []config.LayerRule{
+			{Namespace: "bar", InputMethod: "japanese"},
+		},
+		ClientRules: []config.ClientRule{
+			{Class: "^kitty$", InputMethod: "chinese"},
+		},
+	})
+
+	switcher.layers.open("omarchy-bar")
+
+	if got := switcher.getTargetInputMethod(&ClientInfo{Class: "kitty"}); got != "chinese" {
+		t.Fatalf("getTargetInputMethod() = %q, want %q (namespace must match exactly)", got, "chinese")
+	}
+}
+
+func TestGetTargetInputMethodLayerRuleKeep(t *testing.T) {
+	switcher := NewSwitcher(&config.Config{
+		DefaultInputMethod: "english",
+		LayerRules: []config.LayerRule{
+			{Namespace: "icyleaf-calculator", InputMethod: config.KeepInputMethod},
+		},
+		ClientRules: []config.ClientRule{
+			{Class: "^kitty$", InputMethod: "chinese"},
+		},
+	})
+
+	switcher.layers.open("icyleaf-calculator")
+
+	if got := switcher.getTargetInputMethod(&ClientInfo{Class: "kitty"}); got != config.KeepInputMethod {
+		t.Fatalf("getTargetInputMethod() = %q, want %q", got, config.KeepInputMethod)
+	}
+}
+
+func TestLayerRefcountGatesOverride(t *testing.T) {
+	switcher := NewSwitcher(&config.Config{
+		DefaultInputMethod: "english",
+		LayerRules: []config.LayerRule{
+			{Namespace: "icyleaf-calculator", InputMethod: "english"},
+		},
+		ClientRules: []config.ClientRule{
+			{Class: "^kitty$", InputMethod: "chinese"},
+		},
+	})
+	client := &ClientInfo{Class: "kitty", Title: "shell"}
+
+	switcher.layers.open("icyleaf-calculator")
+	switcher.layers.open("icyleaf-calculator")
+	if got := switcher.getTargetInputMethod(client); got != "english" {
+		t.Fatalf("with two instances open: getTargetInputMethod() = %q, want %q", got, "english")
+	}
+
+	switcher.layers.close("icyleaf-calculator")
+	if got := switcher.getTargetInputMethod(client); got != "english" {
+		t.Fatalf("with one instance still open: getTargetInputMethod() = %q, want %q", got, "english")
+	}
+
+	switcher.layers.close("icyleaf-calculator")
+	if got := switcher.getTargetInputMethod(client); got != "chinese" {
+		t.Fatalf("with all instances closed: getTargetInputMethod() = %q, want %q", got, "chinese")
+	}
+}
+
+func TestLayerTrackerIgnoresUnknownClose(t *testing.T) {
+	switcher := NewSwitcher(&config.Config{
+		DefaultInputMethod: "english",
+		LayerRules: []config.LayerRule{
+			{Namespace: "icyleaf-calculator", InputMethod: "english"},
+		},
+		ClientRules: []config.ClientRule{
+			{Class: "^kitty$", InputMethod: "chinese"},
+		},
+	})
+
+	switcher.layers.close("never-opened")
+
+	if got := switcher.getTargetInputMethod(&ClientInfo{Class: "kitty"}); got != "chinese" {
+		t.Fatalf("getTargetInputMethod() = %q, want %q", got, "chinese")
+	}
+}
+
 func TestProcessWindowChangeKeepsCurrentInputMethod(t *testing.T) {
 	tests := []struct {
 		name   string

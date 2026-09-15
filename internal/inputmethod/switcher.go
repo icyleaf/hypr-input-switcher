@@ -23,9 +23,45 @@ type Switcher struct {
 	config        *config.Config
 	fcitx5        *Fcitx5
 	rime          *Rime
+	layers        *layerTracker
 	notifier      interface {
 		ShowInputMethodSwitch(inputMethod string, clientInfo *config.WindowInfo)
 	}
+}
+
+// layerTracker counts how many instances of each layer-shell namespace are
+// currently open. The same namespace can be open on several monitors at once,
+// so a namespace only counts as "open" while its refcount is above zero.
+type layerTracker struct {
+	counts map[string]int
+}
+
+func newLayerTracker() *layerTracker {
+	return &layerTracker{counts: make(map[string]int)}
+}
+
+func (l *layerTracker) open(namespace string) {
+	if namespace == "" {
+		return
+	}
+	l.counts[namespace]++
+}
+
+func (l *layerTracker) close(namespace string) {
+	if namespace == "" {
+		return
+	}
+	if count, ok := l.counts[namespace]; ok {
+		if count <= 1 {
+			delete(l.counts, namespace)
+			return
+		}
+		l.counts[namespace] = count - 1
+	}
+}
+
+func (l *layerTracker) isOpen(namespace string) bool {
+	return l.counts[namespace] > 0
 }
 
 type ClientInfo struct {
@@ -39,6 +75,7 @@ func NewSwitcher(cfg *config.Config) *Switcher {
 		currentClient: &ClientInfo{},
 		currentIM:     "",
 		config:        cfg,
+		layers:        newLayerTracker(),
 	}
 
 	// Initialize input method handlers
@@ -159,6 +196,10 @@ func (s *Switcher) handleEvents(ctx context.Context, conn net.Conn) error {
 			if err := s.handleActiveWindowEvent(eventData); err != nil {
 				logger.Warningf("Error handling activewindow event: %v", err)
 			}
+		case "openlayer":
+			s.handleLayerEvent(eventData, true)
+		case "closelayer":
+			s.handleLayerEvent(eventData, false)
 		}
 	}
 
@@ -236,15 +277,53 @@ func (s *Switcher) processWindowChange(clientInfo *ClientInfo) error {
 	// Update current client info
 	s.currentClient = clientInfo
 
-	// Determine target input method
-	targetIM := s.getTargetInputMethod(clientInfo)
-
 	logger.Debugf("Window changed: %s - %s (address: %s)", clientInfo.Class, clientInfo.Title, clientInfo.Address)
 
-	// A keep target preserves the active input method without querying or
-	// invoking the configured input method backend.
+	return s.applyResolution(s.resolveTarget(clientInfo), clientInfo)
+}
+
+// handleLayerEvent updates the open-layer bookkeeping and recomputes the target
+// input method. Layer surfaces do not become the active window, so opening or
+// closing one never produces an activewindow event we could rely on; the
+// recompute re-reads the window underneath and re-applies the window rules when
+// no layer rule applies.
+func (s *Switcher) handleLayerEvent(namespace string, isOpen bool) {
+	namespace = strings.TrimSpace(namespace)
+	if namespace == "" {
+		logger.Tracef("Empty layer event namespace")
+		return
+	}
+
+	if isOpen {
+		s.layers.open(namespace)
+	} else {
+		s.layers.close(namespace)
+	}
+
+	logger.Debugf("Layer %s: open=%v (still open: %v)", namespace, isOpen, s.layers.isOpen(namespace))
+
+	clientInfo, err := s.getCurrentClient()
+	if err != nil {
+		logger.Warningf("Failed to get current client for layer change: %v", err)
+		clientInfo = s.currentClient
+	}
+	if clientInfo != nil {
+		s.currentClient = clientInfo
+	}
+
+	if err := s.applyResolution(s.resolveTarget(clientInfo), clientInfo); err != nil {
+		logger.Warningf("Error applying layer rule for %s: %v", namespace, err)
+	}
+}
+
+// applyResolution switches to the resolved input method. The keep target
+// preserves the active input method without querying or invoking the configured
+// input method backend.
+func (s *Switcher) applyResolution(resolution targetResolution, clientInfo *ClientInfo) error {
+	targetIM := resolution.inputMethod
+
 	if targetIM == config.KeepInputMethod {
-		logger.Debugf("Keeping current input method for: %s - %s", clientInfo.Class, clientInfo.Title)
+		logger.Debugf("Keeping current input method")
 		return nil
 	}
 
@@ -253,24 +332,27 @@ func (s *Switcher) processWindowChange(clientInfo *ClientInfo) error {
 
 	logger.Debugf("Current IM: %s -> Target IM: %s", currentIM, targetIM)
 
-	// If input method needs to be switched
-	if currentIM != targetIM && currentIM != "unknown" {
-		if err := s.Switch(targetIM); err != nil {
-			return fmt.Errorf("failed to switch input method to %s: %w", targetIM, err)
-		}
+	if currentIM == targetIM || currentIM == "unknown" {
+		return nil
+	}
 
-		logger.Debugf("Switched input method to: %s", targetIM)
-		s.currentIM = targetIM
+	if err := s.Switch(targetIM); err != nil {
+		return fmt.Errorf("failed to switch input method to %s: %w", targetIM, err)
+	}
 
-		// Show notification if notifier is available and enabled
-		if s.notifier != nil && s.config.Notifications.ShowOnSwitch {
-			// Convert ClientInfo to config.WindowInfo
-			windowInfo := &config.WindowInfo{
-				Class: clientInfo.Class,
-				Title: clientInfo.Title,
-			}
-			s.notifier.ShowInputMethodSwitch(targetIM, windowInfo)
+	logger.Debugf("Switched input method to: %s", targetIM)
+	s.currentIM = targetIM
+
+	// Show notification if notifier is available and enabled
+	if s.notifier != nil && s.config.Notifications.ShowOnSwitch {
+		windowInfo := &config.WindowInfo{}
+		if resolution.layerNamespace != "" {
+			windowInfo.Class = resolution.layerNamespace
+		} else if clientInfo != nil {
+			windowInfo.Class = clientInfo.Class
+			windowInfo.Title = clientInfo.Title
 		}
+		s.notifier.ShowInputMethodSwitch(targetIM, windowInfo)
 	}
 
 	return nil
@@ -415,8 +497,28 @@ func (s *Switcher) GetCurrent() string {
 }
 
 func (s *Switcher) getTargetInputMethod(clientInfo *ClientInfo) string {
+	return s.resolveTarget(clientInfo).inputMethod
+}
+
+// targetResolution is the outcome of matching the current focus (an open layer
+// surface or the active window) against the configured rules. layerNamespace is
+// non-empty when a layer rule decided the result, which lets callers report the
+// overlay rather than the window underneath.
+type targetResolution struct {
+	inputMethod    string
+	layerNamespace string
+}
+
+func (s *Switcher) resolveTarget(clientInfo *ClientInfo) targetResolution {
+	// Open layer surfaces take precedence over the active window: an overlay is
+	// the surface the user is currently interacting with, even though Hyprland
+	// still reports the window underneath as the active one.
+	if namespace, target, ok := s.getLayerTargetInputMethod(); ok {
+		return targetResolution{inputMethod: target, layerNamespace: namespace}
+	}
+
 	if clientInfo == nil {
-		return s.config.DefaultInputMethod
+		return targetResolution{inputMethod: s.config.DefaultInputMethod}
 	}
 
 	className := clientInfo.Class
@@ -434,18 +536,39 @@ func (s *Switcher) getTargetInputMethod(clientInfo *ClientInfo) string {
 		// If title is empty or not specified, class match is enough
 		if rule.Title == "" {
 			logger.Tracef("Matched rule: class=%s -> %s", rule.Class, rule.InputMethod)
-			return rule.InputMethod
+			return targetResolution{inputMethod: rule.InputMethod}
 		}
 
 		// If title is specified, both class and title must match
 		if s.matchPattern(rule.Title, title) {
 			logger.Tracef("Matched rule: class=%s, title=%s -> %s", rule.Class, rule.Title, rule.InputMethod)
-			return rule.InputMethod
+			return targetResolution{inputMethod: rule.InputMethod}
 		}
 	}
 
 	logger.Tracef("No matching rule found, using default: %s", s.config.DefaultInputMethod)
-	return s.config.DefaultInputMethod
+	return targetResolution{inputMethod: s.config.DefaultInputMethod}
+}
+
+// getLayerTargetInputMethod returns the namespace and input method dictated by
+// the first layer rule whose namespace is currently open. The third return
+// value is false when no open namespace matches a rule.
+func (s *Switcher) getLayerTargetInputMethod() (string, string, bool) {
+	if s.layers == nil {
+		return "", "", false
+	}
+
+	for _, rule := range s.config.LayerRules {
+		if rule.Namespace == "" {
+			continue
+		}
+		if s.layers.isOpen(rule.Namespace) {
+			logger.Tracef("Matched layer rule: namespace=%s -> %s", rule.Namespace, rule.InputMethod)
+			return rule.Namespace, rule.InputMethod, true
+		}
+	}
+
+	return "", "", false
 }
 
 func (s *Switcher) matchPattern(pattern, text string) bool {

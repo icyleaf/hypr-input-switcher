@@ -291,6 +291,41 @@ client_rules:
     regex: true
 ```
 
+## Layer Rules
+
+Layer rules determine which input method to use while a **layer-shell overlay**
+is open. Omarchy plugins such as the calculator and the emoji picker are
+layer-shell surfaces, not windows: they never appear in `hyprctl clients`, never
+become the active window, and are therefore invisible to `client_rules`
+(and to Hyprland's `windowrule`). They are identified by their **namespace**.
+
+```yaml
+layer_rules:
+  - namespace: icyleaf-calculator
+    input_method: english
+  - namespace: omarchy-emojis
+    input_method: english
+  - namespace: icyleaf-clipboard
+    input_method: keep
+```
+
+An open layer rule takes precedence over the active window. When the overlay
+closes, the rules for the window underneath are re-applied automatically.
+
+Namespace matching is **exact** (no regex or substring matching), so a rule for
+`bar` will not match `omarchy-bar`. The same namespace may be open on several
+monitors at once; the rule stays in effect until the last instance closes.
+
+### Finding Layer Namespaces
+
+```bash
+# List currently open layer surfaces with their namespaces
+hyprctl layers
+```
+
+Common Omarchy namespaces include `omarchy-bar`, `omarchy-background`,
+`omarchy-osd`, and plugin namespaces such as `icyleaf-calculator`.
+
 ## Notifications
 
 Configure notification appearance and behavior:

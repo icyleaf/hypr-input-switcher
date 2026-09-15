@@ -42,8 +42,8 @@ func validateConfig(config *Config) error {
 	if config.DefaultInputMethod == "" {
 		return errors.New("default input method cannot be empty")
 	}
-	if len(config.ClientRules) == 0 {
-		return errors.New("client rules cannot be empty")
+	if len(config.ClientRules) == 0 && len(config.LayerRules) == 0 {
+		return errors.New("at least one of client rules or layer rules must be defined")
 	}
 	return nil
 }

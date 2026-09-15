@@ -10,6 +10,7 @@ type Config struct {
 	DefaultInputMethod string             `yaml:"default_input_method" json:"default_input_method"`
 	InputMethods       map[string]string  `yaml:"input_methods" json:"input_methods"`
 	ClientRules        []ClientRule       `yaml:"client_rules" json:"client_rules"`
+	LayerRules         []LayerRule        `yaml:"layer_rules" json:"layer_rules"`
 	Fcitx5             Fcitx5Config       `yaml:"fcitx5" json:"fcitx5"`
 	RimeSchemas        map[string]string  `yaml:"rime_schemas" json:"rime_schemas"`
 	Notifications      NotificationConfig `yaml:"notifications" json:"notifications"`
@@ -21,6 +22,14 @@ type Config struct {
 type ClientRule struct {
 	Class       string `yaml:"class" json:"class"`
 	Title       string `yaml:"title" json:"title"`
+	InputMethod string `yaml:"input_method" json:"input_method"`
+}
+
+// LayerRule represents a layer-shell namespace specific input method rule.
+// Layer surfaces (Omarchy overlay plugins) are not windows and can only be
+// matched by their namespace, not by class or title.
+type LayerRule struct {
+	Namespace   string `yaml:"namespace" json:"namespace"`
 	InputMethod string `yaml:"input_method" json:"input_method"`
 }
 
