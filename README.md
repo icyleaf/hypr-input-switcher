@@ -342,7 +342,7 @@ client_rules:
 layer_rules:
   - namespace: omarchy-menu # Omarchy Launcher
     input_method: english
-  - namespace: icyleaf-calculator # icyleaf calculator
+  - namespace: icyleaf-qalculator # icyleaf calculator
     input_method: english
 
 # Default input method when no rules match
@@ -434,7 +434,7 @@ automatically.
 
 ```yaml
 layer_rules:
-  - namespace: icyleaf-calculator # Raycast-style calculator overlay
+  - namespace: icyleaf-qalculator # Raycast-style calculator overlay
     input_method: english
   - namespace: omarchy-emojis # Emoji picker overlay
     input_method: english
@@ -461,9 +461,9 @@ To watch open/close events live:
 socat -u UNIX-CONNECT:"$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock" -
 ```
 
-You will see lines such as `openlayer>>icyleaf-calculator`. Common Omarchy
+You will see lines such as `openlayer>>icyleaf-qalculator`. Common Omarchy
 namespaces are `omarchy-bar`, `omarchy-background`, `omarchy-osd`, and the
-per-plugin namespaces like `icyleaf-calculator`.
+per-plugin namespaces like `icyleaf-qalculator`.
 
 ### Finding Window Classes
 
