@@ -1,3 +1,114 @@
 [tools]
 go = "1.23"
 goreleaser = "2.17.0"
+
+[tasks.default]
+description = "Build the binary (alias: all)"
+alias = "all"
+depends = ["build"]
+run = "true"
+
+[tasks.prepare-icons]
+description = "Prepare icons for embedding (used during development)"
+run = "chmod +x scripts/prepare-icons.sh && ./scripts/prepare-icons.sh"
+
+[tasks.build]
+description = "Build the binary"
+env = { BINARY_NAME = "hypr-input-switcher", BUILD_DIR = "build" }
+depends = ["prepare-icons"]
+run = '''
+set -e
+VERSION=$(git describe --tags --always --dirty)
+COMMIT=$(git rev-parse --short HEAD)
+DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+echo "Building $BINARY_NAME $VERSION..."
+mkdir -p "$BUILD_DIR"
+go build -ldflags "-s -w -X main.version=$VERSION -X main.commit=$COMMIT -X main.date=$DATE" \
+  -o "$BUILD_DIR/$BINARY_NAME" ./cmd/hypr-input-switcher
+'''
+
+[tasks.install]
+description = "Install the binary and config files system-wide"
+raw = true
+env = { BINARY_NAME = "hypr-input-switcher", BUILD_DIR = "build", CONFIG_DIR = "configs" }
+depends = ["build"]
+run = '''
+set -e
+echo "Installing $BINARY_NAME..."
+sudo cp "$BUILD_DIR/$BINARY_NAME" /usr/local/bin/
+sudo mkdir -p /usr/share/hypr-input-switcher
+sudo cp "$CONFIG_DIR/default.yaml" /usr/share/hypr-input-switcher/
+echo "Installation complete!"
+'''
+
+[tasks.install-dev]
+description = "Install the binary and config files for the current user"
+env = { BINARY_NAME = "hypr-input-switcher", BUILD_DIR = "build", CONFIG_DIR = "configs" }
+depends = ["build"]
+run = '''
+set -e
+echo "Installing $BINARY_NAME for development..."
+mkdir -p ~/.local/bin
+cp "$BUILD_DIR/$BINARY_NAME" ~/.local/bin/
+mkdir -p ~/.local/share/hypr-input-switcher
+cp "$CONFIG_DIR/default.yaml" ~/.local/share/hypr-input-switcher/
+echo "Development installation complete!"
+'''
+
+[tasks.clean]
+description = "Remove build artifacts"
+run = '''
+set -e
+echo "Cleaning..."
+rm -rf build/
+rm -rf dist/
+rm -rf bin/
+rm -rf internal/notification/icons/
+'''
+
+[tasks.test]
+description = "Run the test suite"
+run = "go test ./..."
+
+[tasks.run-dev]
+description = "Clean, build and run with the development config"
+env = { BINARY_NAME = "hypr-input-switcher", BUILD_DIR = "build", CONFIG_DIR = "configs" }
+run = '''
+set -e
+mise run clean
+mise run build
+echo "Running with development config..."
+./"$BUILD_DIR/$BINARY_NAME" --config="./$CONFIG_DIR/default.yaml" --log-level=debug --watch
+'''
+
+[tasks.snapshot]
+description = "Create a snapshot release (for testing)"
+run = "goreleaser build --snapshot --clean"
+
+[tasks.release]
+description = "Create a full release (requires goreleaser)"
+run = "goreleaser release --clean"
+
+[tasks.version]
+description = "Show version information"
+run = '''
+echo "Version: $(git describe --tags --always --dirty)"
+echo "Commit: $(git rev-parse --short HEAD)"
+echo "Date: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+'''
+
+[tasks.check-icons]
+description = "Check embedded icons status"
+run = '''
+if [ -d "internal/notification/icons" ]; then
+  echo "Found $(ls internal/notification/icons | wc -l) icon files:"
+  ls -la internal/notification/icons/
+else
+  echo "No icons directory found. Run 'mise run prepare-icons' first."
+fi
+'''
+
+[tasks.dev]
+description = "Prepare icons and run the development build"
+depends = ["prepare-icons"]
+run = "go run ./cmd/hypr-input-switcher --log-level debug"

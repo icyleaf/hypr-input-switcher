@@ -113,8 +113,8 @@ import TabItem from '@theme/TabItem';
     ```bash
     git clone https://github.com/icyleaf/hypr-input-switcher.git
     cd hypr-input-switcher
-    make build
-    sudo make install
+    mise run build
+    sudo mise run install
     ```
   </TabItem>
 </Tabs>

@@ -193,11 +193,11 @@ sudo rpm -i hypr-input-switcher_x86_64.rpm
 3. **Build and install:**
    ```bash
    # System-wide installation
-   make build
-   sudo make install
+   mise run build
+   sudo mise run install
 
    # Or user installation
-   make install-dev
+   mise run install-dev
    ```
 
 ### Auto-start with Hyprland
@@ -534,7 +534,7 @@ hypr-input-switcher/
 │       └── logger.go           # Logging utilities
 ├── configs/
 │   └── default.yaml            # Default configuration template
-├── Makefile                    # Build and installation targets
+├── mise.toml                   # Tool versions and build/install tasks
 ├── go.mod                      # Go module definition
 └── README.md                   # This file
 ```
@@ -621,18 +621,20 @@ notifications:
 
 ### Running from Source
 
+Tasks are defined in `mise.toml`. Run `mise tasks` to list them.
+
 ```bash
 # Build and run with development config
-make run-dev
+mise run run-dev
 
 # Build only
-make build
+mise run build
 
 # Run tests
-make test
+mise run test
 
 # Clean build artifacts
-make clean
+mise run clean
 ```
 
 ### Debugging

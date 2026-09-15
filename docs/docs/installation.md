@@ -111,7 +111,7 @@ sudo dnf install hypr-input-switcher_x86_64.rpm
 
 - Go 1.21 or later
 - Git
-- Make
+- [mise](https://mise.jdx.dev/) (manages the Go toolchain and build tasks)
 
 #### Build and Install
 
@@ -124,26 +124,23 @@ cd hypr-input-switcher
 go mod download
 
 # Build the binary
-make build
+mise run build
 
 # Install system-wide
-sudo make install
+sudo mise run install
 
 # Or install to local bin
-make install-local
+mise run install-dev
 ```
 
 #### Development Build
 
 ```bash
-# Build with debugging symbols
-make build-debug
-
 # Run tests
-make test
+mise run test
 
-# Build documentation
-make docs-build
+# Run with the development config
+mise run run-dev
 ```
 
 ## Verification
