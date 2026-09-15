@@ -316,38 +316,54 @@ client_rules:
 
 ## Layer Rules
 
-Layer rules determine which input method to use while a **layer-shell overlay**
-is open. Omarchy plugins such as the calculator and the emoji picker are
-layer-shell surfaces, not windows: they never appear in `hyprctl clients`, never
-become the active window, and are therefore invisible to `client_rules`
-(and to Hyprland's `windowrule`). They are identified by their **namespace**.
+Some tools are not windows at all. Omarchy plugins such as the calculator and
+the emoji picker are **layer-shell surfaces**: Hyprland anchors them to an output
+instead of managing them as a toplevel window. That has two consequences:
+
+- They never appear in `hyprctl clients` and can never become the active window,
+  so a `windowrule` or a `client_rules` entry keyed on `class`/`title` will never
+  match them.
+- They are identified by their **namespace** instead, and Hyprland announces them
+  on the event socket with `openlayer` / `closelayer`.
+
+Use `layer_rules` to switch the input method while such a surface is open. Each
+rule matches one namespace **exactly** (no regex) and is evaluated before
+`client_rules`, so an open overlay takes precedence over the window underneath.
+When the overlay closes, the rules for the window underneath are re-applied
+automatically.
 
 ```yaml
 layer_rules:
-  - namespace: icyleaf-calculator
+  - namespace: icyleaf-calculator # Raycast-style calculator overlay
     input_method: english
-  - namespace: omarchy-emojis
+  - namespace: omarchy-emojis # Emoji picker overlay
     input_method: english
-  - namespace: icyleaf-clipboard
+  - namespace: icyleaf-clipboard # `keep` lets the overlay inherit the IM
     input_method: keep
 ```
 
-An open layer rule takes precedence over the active window. When the overlay
-closes, the rules for the window underneath are re-applied automatically.
-
-Namespace matching is **exact** (no regex or substring matching), so a rule for
-`bar` will not match `omarchy-bar`. The same namespace may be open on several
-monitors at once; the rule stays in effect until the last instance closes.
+The same namespace can be open on several monitors at once; the rule stays in
+effect until the last instance closes.
 
 ### Finding Layer Namespaces
 
+`layer_rules` matches the namespace, not the window class. To list the currently
+open layer surfaces and their namespaces:
+
 ```bash
-# List currently open layer surfaces with their namespaces
 hyprctl layers
 ```
 
-Common Omarchy namespaces include `omarchy-bar`, `omarchy-background`,
-`omarchy-osd`, and plugin namespaces such as `icyleaf-calculator`.
+To watch open/close events live:
+
+```bash
+# Replace with your own socket path
+socat -u UNIX-CONNECT:"$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock" -
+```
+
+You will see lines such as `openlayer>>icyleaf-calculator`. Common Omarchy
+namespaces are `omarchy-bar`, `omarchy-background`, `omarchy-osd`, and the
+per-plugin namespaces like `icyleaf-calculator`.
 
 ## Notifications
 
