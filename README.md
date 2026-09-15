@@ -300,7 +300,7 @@ hyprctl monitors
 version: 2
 description: Hyprland Input Method Switcher Configuration
 
-# Input method definitions
+# Input method definitions (labels; `english` maps to Rime's ASCII mode)
 input_methods:
   english: keyboard-us
   chinese: rime
@@ -591,6 +591,17 @@ client_rules:
 default_input_method: keep
 ```
 
+### How English Is Reached
+
+`input_method: english` does not require a separate `keyboard-us` entry in the
+fcitx5 input method group. When Rime is the active input method, English means
+**Rime's ASCII mode** (`Rime1.SetAsciiMode`), and `GetCurrent` reads that mode
+back. This matches a common single-input-method setup where the fcitx5 group
+contains only `rime`; in such a group fcitx5's `Deactivate`/`SetCurrentIM` are
+no-ops, so they cannot be used to reach English.
+
+For other setups the backend still falls back to fcitx5 deactivation.
+
 ### Custom Notification Methods
 
 Configure notification priority and methods:
@@ -678,9 +689,9 @@ echo $HYPRLAND_INSTANCE_SIGNATURE
 hyprctl --batch "clients; activewindow"
 
 # Test input method switching manually
-fcitx5-remote -s keyboard-us  # Switch to English
-fcitx5-remote -s rime         # Switch to Chinese
-fcitx5-remote -c              # Get current input method
+busctl --user call org.fcitx.Fcitx5 /rime org.fcitx.Fcitx.Rime1 SetSchema s rime_frost  # Chinese
+busctl --user call org.fcitx.Fcitx5 /rime org.fcitx.Fcitx.Rime1 SetAsciiMode b true     # English
+fcitx5-remote -n              # Get current input method name
 
 # Test notifications
 hyprctl notify 1 3000 "rgb(ff1ea3)" "Test notification"

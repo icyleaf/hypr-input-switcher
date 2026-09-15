@@ -610,20 +610,9 @@ func (s *Switcher) Switch(targetMethod string) error {
 
 	var err error
 	if targetMethod == "english" {
-		err = s.fcitx5.SwitchToEnglish()
+		err = s.switchToEnglish()
 	} else {
-		// For non-English methods, switch to Rime first, then set schema
-		if err = s.fcitx5.SwitchToRime(); err != nil {
-			return fmt.Errorf("failed to switch to Rime: %w", err)
-		}
-
-		// Wait a bit for the switch to take effect
-		time.Sleep(100 * time.Millisecond)
-
-		// Switch to specific schema if Rime is available
-		if s.rime != nil {
-			err = s.rime.SwitchSchema(targetMethod)
-		}
+		err = s.switchToNative(targetMethod)
 	}
 
 	if err != nil {
@@ -632,6 +621,54 @@ func (s *Switcher) Switch(targetMethod string) error {
 
 	if observed := s.GetCurrent(); !verifySwitchReachedTarget(targetMethod, observed) {
 		return fmt.Errorf("input method did not switch to %s (still %s)", targetMethod, observed)
+	}
+
+	return nil
+}
+
+// switchToEnglish puts the input state into English. When Rime is the active
+// input method the English state is Rime's ASCII mode: in a fcitx5 group that
+// contains Rime alone (a common single-IM setup), Deactivate/SetCurrentIM
+// silently do nothing, so ASCII mode is the only way to reach English. For
+// other setups the fcitx5 deactivation path is used.
+func (s *Switcher) switchToEnglish() error {
+	if s.rime != nil && s.fcitx5.GetCurrent() == "rime" {
+		err := s.rime.SetAsciiMode(true)
+		if err == nil {
+			return nil
+		}
+		logger.Debugf("Failed to enable rime ascii mode, falling back to fcitx5: %v", err)
+	}
+
+	return s.fcitx5.SwitchToEnglish()
+}
+
+// switchToNative switches to a Rime-backed input method (e.g. chinese,
+// japanese): activate Rime, select the target schema, then leave ASCII mode.
+// The schema must be selected before clearing ASCII mode because selecting a
+// schema resets the ASCII state to that schema's default.
+func (s *Switcher) switchToNative(targetMethod string) error {
+	if err := s.fcitx5.SwitchToRime(); err != nil {
+		return fmt.Errorf("failed to switch to Rime: %w", err)
+	}
+
+	// Wait a bit for the switch to take effect
+	time.Sleep(100 * time.Millisecond)
+
+	if s.rime == nil {
+		return nil
+	}
+
+	if err := s.rime.SwitchSchema(targetMethod); err != nil {
+		return err
+	}
+
+	// Wait for the schema change to settle before clearing ASCII mode, which
+	// would otherwise be overwritten by the schema switch.
+	time.Sleep(100 * time.Millisecond)
+
+	if err := s.rime.SetAsciiMode(false); err != nil {
+		return fmt.Errorf("failed to leave rime ascii mode: %w", err)
 	}
 
 	return nil
