@@ -1,12 +1,28 @@
+# Hyprland Input Method Switcher — default configuration
+#
+# This file is copied to ~/.config/hypr-input-switcher/config.yaml the first
+# time the daemon runs. Edit that copy, not this template.
+#
+# Full reference: https://github.com/icyleaf/hypr-input-switcher#configuration
+
 version: 2
 description: Hyprland Input Method Switcher Configuration
+
+# Input method labels used by the rules below.
+#
+# "english" is special: it is reached through Rime's ASCII mode when Rime is
+# active, so it does not need a separate keyboard-us entry in your fcitx5
+# input method group. Other names map to Rime schemas (see rime_schemas).
 input_methods:
   english: keyboard-us
   chinese: rime
   japanese: rime
+
+# Window rules, matched against the active window's class (and optionally
+# title). Use `hyprctl activewindow` / `hyprctl clients` to find class names.
+# Rules are evaluated top to bottom; the first match wins.
 client_rules:
   - class: firefox
-    title: ""
     input_method: chinese
   - class: google-chrome
     input_method: chinese
@@ -24,56 +40,64 @@ client_rules:
     input_method: english
   - class: "^(org.telegram.desktop)$"
     input_method: chinese
-# Layer-shell overlays (e.g. Omarchy plugins) are matched by namespace, not by
-# window class. See the README for how to discover namespaces with
-# `hyprctl layers`.
+
+# Layer-shell overlay rules, matched by namespace rather than window class.
+#
+# Overlays (e.g. Omarchy plugins) are layer surfaces: they never appear in
+# `hyprctl clients` and never become the active window, so client_rules cannot
+# match them. List namespaces with `hyprctl layers`. An open layer rule takes
+# precedence over the active window and is released when the overlay closes.
+#
 # layer_rules:
-#   - namespace: icyleaf-calculator
+#   - namespace: icyleaf-calculator   # Raycast-style calculator overlay
 #     input_method: english
-#   - namespace: omarchy-emojis
+#   - namespace: omarchy-emojis       # Emoji picker overlay
 #     input_method: english
-# Set this to "keep" to preserve the current input method when no rule matches.
+#   - namespace: icyleaf-clipboard    # `keep` inherits the current input method
+#     input_method: keep
+
+# Input method used when no rule matches. Set to "keep" to leave the current
+# input method untouched instead.
 default_input_method: english
+
 fcitx5:
   enabled: true
+  # The fcitx5 input method name that Rime is registered under.
   rime_input_method: rime
+
+# Maps input method labels to Rime schema names. Required for any non-english
+# label used in the rules above.
 rime_schemas:
   chinese: rime_frost
   japanese: jaroomaji
+
 notifications:
   enabled: true
-  duration: 2000
-  show_on_switch: true
-  show_app_name: true
+  duration: 2000            # Duration in milliseconds
+  show_on_switch: true      # Notify when the input method changes
+  show_app_name: true       # Include the app/overlay name in the message
   icon_path: "~/.local/share/hypr-input-switcher/icons"
-  # Notification method configuration
+  # Notification backends, tried in order. Methods that are unavailable or
+  # listed in disabled_methods are skipped.
   methods:
     - notify-send    # libnotify (GNOME, KDE, etc.)
     - hyprctl        # Hyprland native notifications
     - dunstify       # Dunst notification daemon
     - swaync-client  # Sway notification center
     - mako           # Mako (Sway/Wayland)
-  # Optional: force specific method
-  force_method: ""   # Leave empty for auto-detection based on methods order
-  # Optional: disable specific methods
-  disabled_methods: []
+  force_method: ""    # Force one method; empty means auto-detect
+  disabled_methods: []  # Methods to skip, e.g. ["mako"]
+
+# Human-readable names shown in notifications.
 display_names:
   english: English
   chinese: 中文
   japanese: 日本語
 
+# Icons shown in notifications. Each value may be an emoji, a bundled icon file
+# name (e.g. "cn.svg"), or an absolute path to an image.
+#
 # icons:
-#   # Style: Combo of flag emojis and file paths
 #   english: "🇺🇸"
 #   chinese: "cn.svg"
 #   japanese: "/absolute/path/to/jp.png"
-
-#   # # Style: Flag emojis
-#   # english: "🇺🇸"   # US flag
-#   # chinese: "🇨🇳"   # Chinese flag
-#   # japanese: "🇯🇵"  # Japanese flag
-
-#   # Alternative style: Letter symbols
-#   # english: "A"     # Simple letter
-#   # chinese: "中"    # Chinese character
-#   # japanese: "あ"   # Hiragana character

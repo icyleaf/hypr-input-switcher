@@ -24,6 +24,12 @@ If you are running **Omarchy Linux (4.0+)**, you can configure and manage all yo
 Here's a minimal configuration example:
 
 ```yaml
+# Input method labels used by the rules below
+input_methods:
+  english: keyboard-us
+  chinese: rime
+  japanese: rime
+
 # Rime schema mapping
 rime_schemas:
   chinese: rime_frost
@@ -57,7 +63,12 @@ client_rules:
     input_method: english
   - class: code
     input_method: english
+
+# Default input method when no rule matches ("keep" preserves the current one)
+default_input_method: english
 ```
+
+The complete annotated template is shipped as `configs/default.yaml`.
 
 ## Icons Configuration
 
@@ -185,6 +196,18 @@ rime_schemas:
   japanese: jaroomaji     # Use jaroomaji schema for Japanese
   korean: hangul          # Use hangul schema for Korean
 ```
+
+### How English Is Reached
+
+`input_method: english` does not require a separate `keyboard-us` entry in the
+fcitx5 input method group. When Rime is the active input method, English means
+**Rime's ASCII mode** (`Rime1.SetAsciiMode`), and the current input method is
+read back from that mode.
+
+This matches a common single-input-method setup where the fcitx5 group contains
+only `rime`: in such a group fcitx5's `Deactivate`/`SetCurrentIM` are no-ops, so
+they cannot be used to reach English. For other setups the backend falls back to
+fcitx5 deactivation.
 
 ## Display Names
 

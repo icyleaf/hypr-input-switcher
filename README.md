@@ -276,6 +276,7 @@ For more details, check out the [Omarchy Plugin Documentation](docs/docs/omarchy
 
 - **User config**: `~/.config/hypr-input-switcher/config.yaml`
 - **System config**: `/etc/hypr-input-switcher/config.yaml`
+- **Template**: [`configs/default.yaml`](configs/default.yaml) (copied to the user config on first run)
 
 If no configuration file exists, a default one will be created automatically.
 
@@ -295,6 +296,8 @@ hyprctl monitors
 ```
 
 ### Example Configuration
+
+The full annotated template is [`configs/default.yaml`](configs/default.yaml). A condensed example:
 
 ```yaml
 version: 2
