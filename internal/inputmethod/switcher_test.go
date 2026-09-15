@@ -278,3 +278,26 @@ func TestSwitchKeepIsNoOp(t *testing.T) {
 		t.Fatalf("Switch(%q) error = %v", config.KeepInputMethod, err)
 	}
 }
+
+func TestVerifySwitchReachedTarget(t *testing.T) {
+	tests := []struct {
+		name        string
+		target      string
+		observed    string
+		wantReached bool
+	}{
+		{name: "exact match", target: "english", observed: "english", wantReached: true},
+		{name: "rime schema match", target: "chinese", observed: "chinese", wantReached: true},
+		{name: "mismatch surfaces failure", target: "english", observed: "rime", wantReached: false},
+		{name: "unknown is not success", target: "english", observed: "unknown", wantReached: false},
+		{name: "empty observation is not success", target: "english", observed: "", wantReached: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := verifySwitchReachedTarget(tt.target, tt.observed); got != tt.wantReached {
+				t.Fatalf("verifySwitchReachedTarget(%q, %q) = %v, want %v", tt.target, tt.observed, got, tt.wantReached)
+			}
+		})
+	}
+}

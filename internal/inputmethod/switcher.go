@@ -588,6 +588,18 @@ func (s *Switcher) matchPattern(pattern, text string) bool {
 	return matched
 }
 
+// verifySwitchReachedTarget reports whether an observed input method confirms
+// that a switch to target actually took effect. The D-Bus calls used to switch
+// methods can return success while silently doing nothing (for example when the
+// target method is not present in the active fcitx5 input method group), so the
+// result is re-checked against the observed value rather than trusted.
+func verifySwitchReachedTarget(target, observed string) bool {
+	if observed == "" || observed == "unknown" {
+		return false
+	}
+	return target == observed
+}
+
 func (s *Switcher) Switch(targetMethod string) error {
 	if targetMethod == config.KeepInputMethod {
 		logger.Debug("Keeping current input method")
@@ -600,21 +612,30 @@ func (s *Switcher) Switch(targetMethod string) error {
 
 	logger.Debugf("Switching to input method: %s", targetMethod)
 
+	var err error
 	if targetMethod == "english" {
-		return s.fcitx5.SwitchToEnglish()
+		err = s.fcitx5.SwitchToEnglish()
+	} else {
+		// For non-English methods, switch to Rime first, then set schema
+		if err = s.fcitx5.SwitchToRime(); err != nil {
+			return fmt.Errorf("failed to switch to Rime: %w", err)
+		}
+
+		// Wait a bit for the switch to take effect
+		time.Sleep(100 * time.Millisecond)
+
+		// Switch to specific schema if Rime is available
+		if s.rime != nil {
+			err = s.rime.SwitchSchema(targetMethod)
+		}
 	}
 
-	// For non-English methods, switch to Rime first, then set schema
-	if err := s.fcitx5.SwitchToRime(); err != nil {
-		return fmt.Errorf("failed to switch to Rime: %w", err)
+	if err != nil {
+		return err
 	}
 
-	// Wait a bit for the switch to take effect
-	time.Sleep(100 * time.Millisecond)
-
-	// Switch to specific schema if Rime is available
-	if s.rime != nil {
-		return s.rime.SwitchSchema(targetMethod)
+	if observed := s.GetCurrent(); !verifySwitchReachedTarget(targetMethod, observed) {
+		return fmt.Errorf("input method did not switch to %s (still %s)", targetMethod, observed)
 	}
 
 	return nil
