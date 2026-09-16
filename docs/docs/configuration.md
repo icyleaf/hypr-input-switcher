@@ -225,7 +225,20 @@ display_names:
 
 ## Client Rules
 
-Client rules determine which input method to use for specific applications:
+Client rules determine which input method to use for specific applications.
+They are matched against the active window's `class` and `title`, which you can
+inspect with [`hyprctl`](https://wiki.hypr.land/configuring/core/advanced-configuration/using-hyprctl/):
+
+```bash
+# The active window's class and title
+hyprctl activewindow
+
+# Every open window
+hyprctl clients
+```
+
+See the Hyprland wiki's [Window Rules](https://wiki.hypr.land/configuring/core/rules/window-rules/)
+for how Hyprland itself identifies windows.
 
 ### Basic Rules
 
@@ -326,6 +339,12 @@ instead of managing them as a toplevel window. That has two consequences:
 - They are identified by their **namespace** instead, and Hyprland announces them
   on the event socket with `openlayer` / `closelayer`.
 
+:::info Hyprland wiki
+See [Layer Rules](https://wiki.hypr.land/configuring/core/rules/layer-rules/) and
+[Using hyprctl](https://wiki.hypr.land/configuring/core/advanced-configuration/using-hyprctl/)
+for the underlying Hyprland behavior.
+:::
+
 Use `layer_rules` to switch the input method while such a surface is open. Each
 rule matches one namespace **exactly** (no regex) and is evaluated before
 `client_rules`, so an open overlay takes precedence over the window underneath.
@@ -353,6 +372,8 @@ open layer surfaces and their namespaces:
 ```bash
 hyprctl layers
 ```
+
+See the Hyprland wiki for the full [`hyprctl` command reference](https://wiki.hypr.land/configuring/core/advanced-configuration/using-hyprctl/).
 
 To watch open/close events live:
 

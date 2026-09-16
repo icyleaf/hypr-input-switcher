@@ -392,6 +392,10 @@ icons:
 
 The application uses `hyprctl` to get window information:
 
+> See the Hyprland wiki for the full reference:
+> [Using hyprctl](https://wiki.hypr.land/configuring/core/advanced-configuration/using-hyprctl/)
+> and [Window Rules](https://wiki.hypr.land/configuring/core/rules/window-rules/).
+
 ```bash
 # Current active window
 hyprctl activewindow -j
@@ -426,6 +430,10 @@ instead of managing them as a toplevel window. That has two consequences:
 - They are identified by their **namespace** instead, and Hyprland announces them
   on the event socket with `openlayer` / `closelayer`.
 
+> Background: [Layer Rules](https://wiki.hypr.land/configuring/core/rules/layer-rules/)
+> and [Using hyprctl](https://wiki.hypr.land/configuring/core/advanced-configuration/using-hyprctl/)
+> in the Hyprland wiki.
+
 Use `layer_rules` to switch the input method while such a surface is open. Each
 rule matches one namespace **exactly** (no regex) and is evaluated before
 `client_rules`, so an open overlay takes precedence over the window underneath.
@@ -453,6 +461,8 @@ open layer surfaces and their namespaces:
 ```bash
 hyprctl layers
 ```
+
+See the Hyprland wiki for the full [`hyprctl` command reference](https://wiki.hypr.land/configuring/core/advanced-configuration/using-hyprctl/).
 
 To watch open/close events live:
 
