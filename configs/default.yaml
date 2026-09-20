@@ -10,9 +10,9 @@ description: Hyprland Input Method Switcher Configuration
 
 # Input method labels used by the rules below.
 #
-# "english" is special: it is reached through Rime's ASCII mode when Rime is
-# active, so it does not need a separate keyboard-us entry in your fcitx5
-# input method group. Other names map to Rime schemas (see rime_schemas).
+# "english" is special: it is reached by deactivating fcitx5, which falls back
+# to the keyboard layout. Other names map to Rime schemas (see rime_schemas)
+# and are selected while fcitx5 is active.
 input_methods:
   english: keyboard-us
   chinese: rime

@@ -2,12 +2,22 @@ package inputmethod
 
 import (
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
 	"hypr-input-switcher/pkg/logger"
 
 	"github.com/godbus/dbus/v5"
+)
+
+// fcitx5 controller State values, as reported by Controller1.State and
+// fcitx5-remote. An inactive controller means the keyboard layout is in effect,
+// which is the English state.
+const (
+	fcitxStateClosed   = 0
+	fcitxStateInactive = 1
+	fcitxStateActive   = 2
 )
 
 type Fcitx5 struct {
@@ -33,36 +43,94 @@ func (f *Fcitx5) IsAvailable() bool {
 	return err == nil
 }
 
-// GetCurrent gets current input method via fcitx5
-func (f *Fcitx5) GetCurrent() string {
-	// Try D-Bus first
-	if currentIM := f.getCurrentViaDBus(); currentIM != "unknown" {
-		return currentIM
+// resolveFcitx5InputMethod maps the fcitx5 controller state and the current
+// input method name to a high-level input method label. The controller reports
+// the name of the configured input method even while it is inactive, so the
+// state is what distinguishes an active method from the keyboard layout: only
+// an active controller can be a real input method, anything else is English.
+func resolveFcitx5InputMethod(state int, currentIM, rimeInputMethod string) string {
+	if state != fcitxStateActive {
+		return "english"
 	}
 
-	// Fallback to fcitx5-remote
-	cmd := exec.Command("fcitx5-remote", "-n")
-	output, err := cmd.Output()
-	if err != nil {
-		return "unknown"
-	}
-
-	currentIM := strings.TrimSpace(string(output))
-
-	// If it's rime, return the specific identifier
-	if currentIM == f.rimeInputMethod {
+	if currentIM == rimeInputMethod {
 		return "rime"
 	}
 
 	return "english"
 }
 
-// getCurrentViaDBus gets current input method via D-Bus
-func (f *Fcitx5) getCurrentViaDBus() string {
+// GetCurrent gets current input method via fcitx5
+func (f *Fcitx5) GetCurrent() string {
+	return resolveFcitx5InputMethod(f.GetState(), f.getCurrentName(), f.rimeInputMethod)
+}
+
+// GetState returns the fcitx5 controller state via D-Bus, falling back to
+// fcitx5-remote. fcitxStateClosed is returned when neither can be queried.
+func (f *Fcitx5) GetState() int {
+	if state, err := f.getStateViaDBus(); err == nil {
+		return state
+	}
+
+	// Fallback to fcitx5-remote
+	cmd := exec.Command("fcitx5-remote")
+	output, err := cmd.Output()
+	if err != nil {
+		return fcitxStateClosed
+	}
+
+	state, err := strconv.Atoi(strings.TrimSpace(string(output)))
+	if err != nil {
+		logger.Debugf("Failed to parse fcitx5-remote state %q: %v", string(output), err)
+		return fcitxStateClosed
+	}
+
+	return state
+}
+
+// getStateViaDBus gets the controller state via D-Bus
+func (f *Fcitx5) getStateViaDBus() (int, error) {
 	conn, err := dbus.SessionBus()
 	if err != nil {
 		logger.Debugf("Failed to connect to session bus: %v", err)
-		return "unknown"
+		return fcitxStateClosed, err
+	}
+	defer conn.Close()
+
+	obj := conn.Object("org.fcitx.Fcitx5", "/controller")
+	var state int32
+	if err := obj.Call("org.fcitx.Fcitx.Controller1.State", 0).Store(&state); err != nil {
+		logger.Debugf("Failed to get fcitx5 state via D-Bus: %v", err)
+		return fcitxStateClosed, err
+	}
+
+	logger.Debugf("Current fcitx5 state via D-Bus: %d", state)
+	return int(state), nil
+}
+
+// getCurrentName returns the configured current input method name via D-Bus,
+// falling back to fcitx5-remote. It returns "" when neither can be queried.
+func (f *Fcitx5) getCurrentName() string {
+	if name := f.getCurrentNameViaDBus(); name != "" {
+		return name
+	}
+
+	// Fallback to fcitx5-remote
+	cmd := exec.Command("fcitx5-remote", "-n")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(output))
+}
+
+// getCurrentNameViaDBus gets the configured current input method name via D-Bus
+func (f *Fcitx5) getCurrentNameViaDBus() string {
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		logger.Debugf("Failed to connect to session bus: %v", err)
+		return ""
 	}
 	defer conn.Close()
 
@@ -72,21 +140,11 @@ func (f *Fcitx5) getCurrentViaDBus() string {
 	err = obj.Call("org.fcitx.Fcitx.Controller1.CurrentInputMethod", 0).Store(&currentIM)
 	if err != nil {
 		logger.Debugf("Failed to get current input method via D-Bus: %v", err)
-		return "unknown"
+		return ""
 	}
 
 	logger.Debugf("Current input method via D-Bus: %s", currentIM)
-
-	// If it's rime, return rime identifier
-	if currentIM == f.rimeInputMethod {
-		return "rime"
-	}
-
-	if strings.Contains(currentIM, "keyboard") {
-		return "english"
-	}
-
-	return "english"
+	return currentIM
 }
 
 // SwitchToEnglish switches to English input method

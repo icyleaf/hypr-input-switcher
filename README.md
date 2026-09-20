@@ -314,7 +314,7 @@ The full annotated template is [`configs/default.yaml`](configs/default.yaml). A
 version: 2
 description: Hyprland Input Method Switcher Configuration
 
-# Input method definitions (labels; `english` maps to Rime's ASCII mode)
+# Input method definitions (labels; `english` means the keyboard layout)
 input_methods:
   english: keyboard-us
   chinese: rime
@@ -618,14 +618,25 @@ default_input_method: keep
 
 ### How English Is Reached
 
-`input_method: english` does not require a separate `keyboard-us` entry in the
-fcitx5 input method group. When Rime is the active input method, English means
-**Rime's ASCII mode** (`Rime1.SetAsciiMode`), and `GetCurrent` reads that mode
-back. This matches a common single-input-method setup where the fcitx5 group
-contains only `rime`; in such a group fcitx5's `Deactivate`/`SetCurrentIM` are
-no-ops, so they cannot be used to reach English.
+English is the fcitx5 **inactive state**: switching to `english` deactivates
+fcitx5 (`Controller1.Deactivate`), so keystrokes fall through to the keyboard
+layout. To switch to a Rime-backed method, the switcher activates fcitx5, selects
+the Rime schema, and the method becomes active again.
 
-For other setups the backend still falls back to fcitx5 deactivation.
+The fcitx5 controller keeps reporting the configured input method **name** even
+while it is inactive (for example `CurrentInputMethod` still returns `rime`
+after deactivation). The controller **state** (`Controller1.State`) is what
+distinguishes the two:
+
+| State | Meaning                    | Reported as |
+|-------|----------------------------|-------------|
+| `0`   | fcitx5 is not running      | `english`   |
+| `1`   | running, input method idle | `english`   |
+| `2`   | running, input method on   | `rime` / schema label |
+
+Rime's ASCII mode (`Rime1.SetAsciiMode`) is intentionally not used: it is a
+sticky state that fcitx5's own `Ctrl+Space` toggle does not clear, so leaving it
+on traps the user in a keyboard-layout/ASCII loop.
 
 ### Custom Notification Methods
 
@@ -716,8 +727,10 @@ echo $HYPRLAND_INSTANCE_SIGNATURE
 hyprctl --batch "clients; activewindow"
 
 # Test input method switching manually
-busctl --user call org.fcitx.Fcitx5 /rime org.fcitx.Fcitx.Rime1 SetSchema s rime_frost  # Chinese
-busctl --user call org.fcitx.Fcitx5 /rime org.fcitx.Fcitx.Rime1 SetAsciiMode b true     # English
+busctl --user call org.fcitx.Fcitx5 /controller org.fcitx.Fcitx.Controller1 Activate         # Rime active
+busctl --user call org.fcitx.Fcitx5 /rime org.fcitx.Fcitx.Rime1 SetSchema s rime_frost       # Chinese
+busctl --user call org.fcitx.Fcitx5 /controller org.fcitx.Fcitx.Controller1 Deactivate       # English
+fcitx5-remote                 # Get current state (1 = idle/English, 2 = active)
 fcitx5-remote -n              # Get current input method name
 
 # Test notifications
