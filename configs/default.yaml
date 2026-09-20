@@ -56,7 +56,7 @@ layer_rules:
 
 # Input method used when no rule matches. Set to "keep" to leave the current
 # input method untouched instead.
-default_input_method: english
+default_input_method: keep
 
 fcitx5:
   enabled: true
@@ -71,20 +71,20 @@ rime_schemas:
 
 notifications:
   enabled: true
-  duration: 2000            # Duration in milliseconds
-  show_on_switch: true      # Notify when the input method changes
-  show_app_name: true       # Include the app/overlay name in the message
+  duration: 2000 # Duration in milliseconds
+  show_on_switch: true # Notify when the input method changes
+  show_app_name: true # Include the app/overlay name in the message
   icon_path: "~/.local/share/hypr-input-switcher/icons"
   # Notification backends, tried in order. Methods that are unavailable or
   # listed in disabled_methods are skipped.
   methods:
-    - notify-send    # libnotify (GNOME, KDE, etc.)
-    - hyprctl        # Hyprland native notifications
-    - dunstify       # Dunst notification daemon
-    - swaync-client  # Sway notification center
-    - mako           # Mako (Sway/Wayland)
-  force_method: ""    # Force one method; empty means auto-detect
-  disabled_methods: []  # Methods to skip, e.g. ["mako"]
+    - notify-send # libnotify (GNOME, KDE, etc.)
+    - hyprctl # Hyprland native notifications
+    - dunstify # Dunst notification daemon
+    - swaync-client # Sway notification center
+    - mako # Mako (Sway/Wayland)
+  force_method: "" # Force one method; empty means auto-detect
+  disabled_methods: [] # Methods to skip, e.g. ["mako"]
 
 # Human-readable names shown in notifications.
 display_names:
