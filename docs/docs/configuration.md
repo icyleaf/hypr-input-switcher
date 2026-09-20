@@ -199,15 +199,19 @@ rime_schemas:
 
 ### How English Is Reached
 
-`input_method: english` does not require a separate `keyboard-us` entry in the
-fcitx5 input method group. When Rime is the active input method, English means
-**Rime's ASCII mode** (`Rime1.SetAsciiMode`), and the current input method is
-read back from that mode.
+English is the fcitx5 **inactive state**: switching to `english` deactivates
+fcitx5, so keystrokes fall through to the keyboard layout. Switching to a
+Rime-backed method activates fcitx5 and selects the Rime schema.
 
-This matches a common single-input-method setup where the fcitx5 group contains
-only `rime`: in such a group fcitx5's `Deactivate`/`SetCurrentIM` are no-ops, so
-they cannot be used to reach English. For other setups the backend falls back to
-fcitx5 deactivation.
+The fcitx5 controller keeps reporting the configured input method **name** even
+while inactive (`CurrentInputMethod` still returns `rime` after deactivation),
+so the switcher distinguishes them by the controller **state**
+(`Controller1.State`): `0` (not running) and `1` (idle) are `english`, `2`
+(active) is the configured method.
+
+Rime's ASCII mode (`Rime1.SetAsciiMode`) is intentionally not used: it is a
+sticky state that fcitx5's own `Ctrl+Space` toggle does not clear, so leaving it
+on traps the user in a keyboard-layout/ASCII loop.
 
 ## Display Names
 

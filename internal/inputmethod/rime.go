@@ -56,15 +56,9 @@ func (r *Rime) GetCurrentSchema() string {
 	return currentSchema
 }
 
-// resolveRimeInputMethod maps Rime state to a configured input method name.
-// ASCII mode means the user is typing Latin characters, so it always resolves
-// to "english" regardless of the active schema. Otherwise the schema is mapped
-// back through the configured schema table, falling back to defaultIM.
-func resolveRimeInputMethod(asciiMode bool, schema string, schemas map[string]string, defaultIM string) string {
-	if asciiMode {
-		return "english"
-	}
-
+// mapSchemaToInputMethod maps a Rime schema name back to a configured input
+// method label. Unknown schemas fall back to defaultIM.
+func mapSchemaToInputMethod(schema string, schemas map[string]string, defaultIM string) string {
 	if schema == "unknown" {
 		return defaultIM
 	}
@@ -78,48 +72,9 @@ func resolveRimeInputMethod(asciiMode bool, schema string, schemas map[string]st
 	return defaultIM
 }
 
-// IsAsciiMode reports whether Rime is currently in ASCII (Latin) mode, which is
-// how a Latin/English input state is represented when the fcitx5 group only
-// contains Rime.
-func (r *Rime) IsAsciiMode() bool {
-	conn, err := dbus.SessionBus()
-	if err != nil {
-		logger.Debugf("Failed to connect to session bus: %v", err)
-		return false
-	}
-	defer conn.Close()
-
-	obj := conn.Object("org.fcitx.Fcitx5", "/rime")
-	var asciiMode bool
-	if err := obj.Call("org.fcitx.Fcitx.Rime1.IsAsciiMode", 0).Store(&asciiMode); err != nil {
-		logger.Debugf("Failed to query rime ascii mode via D-Bus: %v", err)
-		return false
-	}
-
-	return asciiMode
-}
-
-// SetAsciiMode switches Rime between ASCII (Latin) and native input.
-func (r *Rime) SetAsciiMode(asciiMode bool) error {
-	logger.Debugf("Setting rime ascii mode to %v", asciiMode)
-
-	conn, err := dbus.SessionBus()
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	obj := conn.Object("org.fcitx.Fcitx5", "/rime")
-	if err := obj.Call("org.fcitx.Fcitx.Rime1.SetAsciiMode", 0, asciiMode).Err; err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// GetCurrentInputMethod returns the input method type based on current Rime state
+// GetCurrentInputMethod returns the input method type based on current schema
 func (r *Rime) GetCurrentInputMethod(defaultIM string) string {
-	return resolveRimeInputMethod(r.IsAsciiMode(), r.GetCurrentSchema(), r.schemas, defaultIM)
+	return mapSchemaToInputMethod(r.GetCurrentSchema(), r.schemas, defaultIM)
 }
 
 // SwitchSchema switches to specified schema
