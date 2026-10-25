@@ -33,7 +33,12 @@ func LoadConfig(filePath string) (*Config, error) {
 
 // Normalize populates backward-compatible fields between input_methods and legacy maps
 func (c *Config) Normalize() {
-	if c.Fcitx5.RimeInputMethod == "" {
+	if c.Fcitx5 == nil {
+		c.Fcitx5 = &Fcitx5Config{
+			Enabled:         true,
+			RimeInputMethod: "rime",
+		}
+	} else if c.Fcitx5.RimeInputMethod == "" {
 		c.Fcitx5.RimeInputMethod = "rime"
 	}
 	if c.DisplayNames == nil {

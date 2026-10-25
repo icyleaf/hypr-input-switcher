@@ -42,7 +42,7 @@ type Config struct {
 	InputMethods       map[string]InputMethodConfig `yaml:"input_methods" json:"input_methods"`
 	ClientRules        []ClientRule                 `yaml:"client_rules,omitempty" json:"client_rules,omitempty"`
 	LayerRules         []LayerRule                  `yaml:"layer_rules,omitempty" json:"layer_rules,omitempty"`
-	Fcitx5             Fcitx5Config                 `yaml:"fcitx5" json:"fcitx5"`
+	Fcitx5             *Fcitx5Config                `yaml:"fcitx5,omitempty" json:"fcitx5,omitempty"`
 	RimeSchemas        map[string]string            `yaml:"rime_schemas,omitempty" json:"rime_schemas,omitempty"`
 	Notifications      NotificationConfig           `yaml:"notifications" json:"notifications"`
 	DisplayNames       map[string]string            `yaml:"display_names,omitempty" json:"display_names,omitempty"`

@@ -80,11 +80,6 @@ layer_rules:
 # input method untouched instead.
 default_input_method: keep
 
-fcitx5:
-  enabled: true
-  # The fcitx5 input method name that Rime is registered under.
-  rime_input_method: rime
-
 notifications:
   enabled: true
   duration: 2000 # Duration in milliseconds

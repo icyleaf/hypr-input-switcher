@@ -16,7 +16,7 @@ type OldConfig struct {
 	InputMethods       interface{}        `yaml:"input_methods"`
 	ClientRules        interface{}        `yaml:"client_rules"`
 	LayerRules         []LayerRule        `yaml:"layer_rules"`
-	Fcitx5             Fcitx5Config       `yaml:"fcitx5"`
+	Fcitx5             *Fcitx5Config      `yaml:"fcitx5"`
 	RimeSchemas        map[string]string  `yaml:"rime_schemas"`
 	Notifications      NotificationConfig `yaml:"notifications"`
 	DisplayNames       map[string]string  `yaml:"display_names"`
@@ -138,10 +138,11 @@ func MigrateConfig(oldConfigPath string, newConfigPath string) error {
 	// Normalize into cohesive v3 entities
 	cfg.Normalize()
 
-	// Clear out deprecated top-level maps now that they are inlined into InputMethods
+	// Clear out deprecated top-level maps and sections now that they are inlined or unneeded in v3
 	cfg.RimeSchemas = nil
 	cfg.DisplayNames = nil
 	cfg.Icons = nil
+	cfg.Fcitx5 = nil
 
 	data, err := yaml.Marshal(cfg)
 	if err != nil {

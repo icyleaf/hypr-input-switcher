@@ -72,9 +72,10 @@ type ClientInfo struct {
 }
 
 func NewSwitcher(cfg *config.Config) *Switcher {
-	if cfg != nil {
-		cfg.Normalize()
+	if cfg == nil {
+		cfg = &config.Config{}
 	}
+	cfg.Normalize()
 
 	switcher := &Switcher{
 		currentClient: &ClientInfo{},

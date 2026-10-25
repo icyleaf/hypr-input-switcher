@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -46,6 +47,14 @@ client_rules:
 	}
 	if len(cfg.ClientRules) != 2 {
 		t.Errorf("len(ClientRules) = %d, want 2", len(cfg.ClientRules))
+	}
+
+	v3Raw, err := os.ReadFile(v3Path)
+	if err != nil {
+		t.Fatalf("ReadFile(v3Path) error = %v", err)
+	}
+	if strings.Contains(string(v3Raw), "fcitx5:") {
+		t.Errorf("v3 yaml should not contain fcitx5 section, got:\n%s", string(v3Raw))
 	}
 }
 
@@ -111,6 +120,14 @@ client_rules:
 	}
 	if len(cfg.ClientRules) != 2 {
 		t.Errorf("len(ClientRules) = %d, want 2", len(cfg.ClientRules))
+	}
+
+	v3Raw, err := os.ReadFile(v3Path)
+	if err != nil {
+		t.Fatalf("ReadFile(v3Path) error = %v", err)
+	}
+	if strings.Contains(string(v3Raw), "fcitx5:") {
+		t.Errorf("v3 yaml should not contain fcitx5 section, got:\n%s", string(v3Raw))
 	}
 }
 
