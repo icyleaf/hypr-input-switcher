@@ -1,12 +1,16 @@
 package inputmethod
 
-import "testing"
+import (
+	"testing"
+
+	"hypr-input-switcher/internal/config"
+)
 
 func TestResolveFcitx5InputMethod(t *testing.T) {
-	inputMethods := map[string]string{
-		"english":  "keyboard-us",
-		"chinese":  "msime",
-		"japanese": "rime",
+	inputMethods := map[string]config.InputMethodConfig{
+		"english":  {Engine: "keyboard-us"},
+		"chinese":  {Engine: "msime"},
+		"japanese": {Engine: "rime", Profile: "jaroomaji"},
 	}
 
 	tests := []struct {

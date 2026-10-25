@@ -72,6 +72,10 @@ type ClientInfo struct {
 }
 
 func NewSwitcher(cfg *config.Config) *Switcher {
+	if cfg != nil {
+		cfg.Normalize()
+	}
+
 	switcher := &Switcher{
 		currentClient: &ClientInfo{},
 		currentIM:     "",
@@ -503,8 +507,16 @@ func (s *Switcher) GetCurrent() string {
 	// Get current fcitx5 input method
 	currentIM := s.fcitx5.GetCurrent()
 
-	// If it's Rime, get the specific input method based on schema
+	// If it's Rime, get the specific input method based on current schema and profiles
 	if currentIM == "rime" && s.rime != nil {
+		currentSchema := s.rime.GetCurrentSchema()
+		// Search input_methods for an engine="rime" with matching profile
+		for label, imCfg := range s.config.InputMethods {
+			if (imCfg.Engine == "rime" || imCfg.Engine == s.config.Fcitx5.RimeInputMethod) && imCfg.Profile == currentSchema {
+				return label
+			}
+		}
+		// Fallback to legacy RimeSchemas map
 		return s.rime.GetCurrentInputMethod(s.config.DefaultInputMethod)
 	}
 
@@ -659,19 +671,20 @@ func (s *Switcher) Switch(targetMethod string) error {
 	logger.Debugf("Switching to input method: %s", targetMethod)
 
 	var err error
-	imName, hasIM := s.config.InputMethods[targetMethod]
+	imCfg, hasIM := s.config.InputMethods[targetMethod]
+	engine := imCfg.Engine
 
 	if targetMethod == "english" {
-		if hasIM && imName != "" {
-			err = s.fcitx5.SwitchToIM(imName)
+		if hasIM && engine != "" {
+			err = s.fcitx5.SwitchToIM(engine)
 		} else {
 			err = s.fcitx5.SwitchToEnglish()
 		}
-	} else if hasIM && imName != s.config.Fcitx5.RimeInputMethod && imName != "rime" {
-		// Target is a direct fcitx5 input method (e.g. msime)
-		err = s.fcitx5.SwitchToIM(imName)
+	} else if hasIM && engine != s.config.Fcitx5.RimeInputMethod && engine != "rime" {
+		// Target is a direct non-Rime fcitx5 input method (e.g. msime)
+		err = s.fcitx5.SwitchToIM(engine)
 	} else {
-		// For Rime, switch to Rime first, then set schema
+		// For Rime, switch to Rime first, then set schema/profile
 		if err = s.fcitx5.SwitchToRime(); err != nil {
 			return fmt.Errorf("failed to switch to Rime: %w", err)
 		}
@@ -679,9 +692,13 @@ func (s *Switcher) Switch(targetMethod string) error {
 		// Wait a bit for the switch to take effect
 		time.Sleep(100 * time.Millisecond)
 
-		// Switch to specific schema if Rime is available
+		// Switch to specific schema/profile if Rime is available
 		if s.rime != nil {
-			err = s.rime.SwitchSchema(targetMethod)
+			profile := imCfg.Profile
+			if profile == "" {
+				profile = targetMethod
+			}
+			err = s.rime.SwitchSchema(profile)
 		}
 	}
 

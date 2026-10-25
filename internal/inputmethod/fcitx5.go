@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"hypr-input-switcher/internal/config"
 	"hypr-input-switcher/pkg/logger"
 
 	"github.com/godbus/dbus/v5"
@@ -22,10 +23,10 @@ const (
 
 type Fcitx5 struct {
 	rimeInputMethod string
-	inputMethods    map[string]string
+	inputMethods    map[string]config.InputMethodConfig
 }
 
-func NewFcitx5(rimeInputMethod string, inputMethods map[string]string) *Fcitx5 {
+func NewFcitx5(rimeInputMethod string, inputMethods map[string]config.InputMethodConfig) *Fcitx5 {
 	return &Fcitx5{
 		rimeInputMethod: rimeInputMethod,
 		inputMethods:    inputMethods,
@@ -50,17 +51,17 @@ func (f *Fcitx5) IsAvailable() bool {
 // the name of the configured input method even while it is inactive, so the
 // state is what distinguishes an active method from the keyboard layout: only
 // an active controller can be a real input method, anything else is English.
-func resolveFcitx5InputMethod(state int, currentIM, rimeInputMethod string, inputMethods map[string]string) string {
+func resolveFcitx5InputMethod(state int, currentIM, rimeInputMethod string, inputMethods map[string]config.InputMethodConfig) string {
 	if state != fcitxStateActive {
 		return "english"
 	}
 
-	if currentIM == rimeInputMethod {
+	if currentIM == rimeInputMethod || currentIM == "rime" {
 		return "rime"
 	}
 
 	for label, im := range inputMethods {
-		if im == currentIM {
+		if im.Engine == currentIM {
 			return label
 		}
 	}

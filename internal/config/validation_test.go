@@ -66,3 +66,64 @@ func TestLoadConfigRejectsConfigWithoutAnyRules(t *testing.T) {
 		t.Fatal("LoadConfig() error = nil, want error when neither client nor layer rules are defined")
 	}
 }
+
+func TestLoadConfigInputMethodFormatsAndNormalize(t *testing.T) {
+	configYaml := `
+version: 2
+description: test
+default_input_method: english
+input_methods:
+  english: keyboard-us
+  chinese: msime
+  japanese: rime:jaroomaji
+  korean:
+    engine: hangul
+    profile: 2bulsik
+    display_name: 한국어
+    icon: 🇰🇷
+rime_schemas:
+  chinese: rime_pinyin
+display_names:
+  english: English
+icons:
+  english: 🇺🇸
+client_rules:
+  - class: ghostty
+    input_method: english
+`
+	path := writeConfig(t, configYaml)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+
+	// 1. Shorthand string "keyboard-us"
+	if cfg.InputMethods["english"].Engine != "keyboard-us" {
+		t.Fatalf("english engine = %q, want %q", cfg.InputMethods["english"].Engine, "keyboard-us")
+	}
+	// Legacy display_names/icons merged into english
+	if cfg.InputMethods["english"].DisplayName != "English" {
+		t.Fatalf("english display_name = %q, want %q", cfg.InputMethods["english"].DisplayName, "English")
+	}
+	if cfg.InputMethods["english"].Icon != "🇺🇸" {
+		t.Fatalf("english icon = %q, want %q", cfg.InputMethods["english"].Icon, "🇺🇸")
+	}
+
+	// 2. rime_schemas merged into chinese profile
+	if cfg.InputMethods["chinese"].Profile != "rime_pinyin" {
+		t.Fatalf("chinese profile = %q, want %q", cfg.InputMethods["chinese"].Profile, "rime_pinyin")
+	}
+
+	// 3. Shorthand "rime:jaroomaji" parsed
+	if cfg.InputMethods["japanese"].Engine != "rime" || cfg.InputMethods["japanese"].Profile != "jaroomaji" {
+		t.Fatalf("japanese = %+v, want engine=rime, profile=jaroomaji", cfg.InputMethods["japanese"])
+	}
+
+	// 4. Object parsed and synced back to DisplayNames/Icons
+	if cfg.DisplayNames["korean"] != "한국어" {
+		t.Fatalf("korean display_name sync = %q, want %q", cfg.DisplayNames["korean"], "한국어")
+	}
+	if cfg.Icons["korean"] != "🇰🇷" {
+		t.Fatalf("korean icon sync = %q, want %q", cfg.Icons["korean"], "🇰🇷")
+	}
+}

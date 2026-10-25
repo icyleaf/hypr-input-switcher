@@ -10,13 +10,24 @@ description: Hyprland Input Method Switcher Configuration
 
 # Input method labels used by the rules below.
 #
-# "english" is special: it is reached by deactivating fcitx5, which falls back
-# to the keyboard layout. Other names map to Rime schemas (see rime_schemas)
-# and are selected while fcitx5 is active.
+# Each entry specifies an input method engine (e.g. keyboard-us, msime, rime)
+# and optional sub-mode/schema profile.
+#
+# Full object format:
+#   japanese:
+#     engine: rime
+#     profile: jaroomaji
+#     display_name: 日本語
+#     icon: 🇯🇵
+#
+# Shorthand string formats:
+#   english: keyboard-us
+#   chinese: msime
+#   japanese: rime:jaroomaji
 input_methods:
   english: keyboard-us
-  chinese: rime
-  japanese: rime
+  chinese: rime:rime_frost
+  japanese: rime:jaroomaji
 
 # Window rules, matched against the active window's class (and optionally
 # title). Use `hyprctl activewindow` / `hyprctl clients` to find class names.

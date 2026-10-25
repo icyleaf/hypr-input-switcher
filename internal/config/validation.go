@@ -26,7 +26,53 @@ func LoadConfig(filePath string) (*Config, error) {
 		return nil, err
 	}
 
+	config.Normalize()
+
 	return &config, nil
+}
+
+// Normalize populates backward-compatible fields between input_methods and legacy maps
+func (c *Config) Normalize() {
+	if c.Fcitx5.RimeInputMethod == "" {
+		c.Fcitx5.RimeInputMethod = "rime"
+	}
+	if c.DisplayNames == nil {
+		c.DisplayNames = make(map[string]string)
+	}
+	if c.Icons == nil {
+		c.Icons = make(map[string]string)
+	}
+	if c.RimeSchemas == nil {
+		c.RimeSchemas = make(map[string]string)
+	}
+
+	for label, im := range c.InputMethods {
+		// Populate profile from legacy RimeSchemas if not specified
+		if im.Profile == "" && c.RimeSchemas[label] != "" {
+			im.Profile = c.RimeSchemas[label]
+		}
+		if im.Profile != "" && c.RimeSchemas[label] == "" {
+			c.RimeSchemas[label] = im.Profile
+		}
+
+		// Sync DisplayName
+		if im.DisplayName == "" && c.DisplayNames[label] != "" {
+			im.DisplayName = c.DisplayNames[label]
+		}
+		if im.DisplayName != "" && c.DisplayNames[label] == "" {
+			c.DisplayNames[label] = im.DisplayName
+		}
+
+		// Sync Icon
+		if im.Icon == "" && c.Icons[label] != "" {
+			im.Icon = c.Icons[label]
+		}
+		if im.Icon != "" && c.Icons[label] == "" {
+			c.Icons[label] = im.Icon
+		}
+
+		c.InputMethods[label] = im
+	}
 }
 
 func validateConfig(config *Config) error {

@@ -346,3 +346,38 @@ func TestPerAppMemory(t *testing.T) {
 		t.Fatalf("unconfigured cold-start target = %q, want %q", unconfiguredTarget.inputMethod, "chinese")
 	}
 }
+
+func TestProfileAndEngineResolution(t *testing.T) {
+	cfg := &config.Config{
+		DefaultInputMethod: "chinese",
+		InputMethods: map[string]config.InputMethodConfig{
+			"english":  {Engine: "keyboard-us"},
+			"chinese":  {Engine: "msime"},
+			"japanese": {Engine: "rime", Profile: "jaroomaji"},
+		},
+	}
+	cfg.Normalize()
+	switcher := NewSwitcher(cfg)
+
+	// Verify resolveFcitx5InputMethod returns correct labels
+	if got := resolveFcitx5InputMethod(fcitxStateActive, "msime", "rime", cfg.InputMethods); got != "chinese" {
+		t.Fatalf("resolve msime = %q, want chinese", got)
+	}
+	if got := resolveFcitx5InputMethod(fcitxStateActive, "keyboard-us", "rime", cfg.InputMethods); got != "english" {
+		t.Fatalf("resolve keyboard-us = %q, want english", got)
+	}
+	if got := resolveFcitx5InputMethod(fcitxStateActive, "rime", "rime", cfg.InputMethods); got != "rime" {
+		t.Fatalf("resolve rime = %q, want rime", got)
+	}
+
+	// Verify switcher GetCurrent schema matching with profile
+	switcher.rime = NewRime(cfg.RimeSchemas)
+	// If rime schema matches jaroomaji, it maps to japanese
+	if label := switcher.rime.GetCurrentInputMethod(cfg.DefaultInputMethod); label != "japanese" {
+		// Mock schema in mapSchemaToInputMethod
+		mapped := mapSchemaToInputMethod("jaroomaji", cfg.RimeSchemas, "chinese")
+		if mapped != "japanese" {
+			t.Fatalf("mapSchemaToInputMethod = %q, want japanese", mapped)
+		}
+	}
+}

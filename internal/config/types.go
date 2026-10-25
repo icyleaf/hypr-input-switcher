@@ -1,21 +1,52 @@
 package config
 
+import "strings"
+
 // KeepInputMethod is a reserved input method value that disables switching.
 const KeepInputMethod = "keep"
 
+// InputMethodConfig represents configuration for a specific input method entry
+type InputMethodConfig struct {
+	Engine      string `yaml:"engine" json:"engine"`
+	Profile     string `yaml:"profile,omitempty" json:"profile,omitempty"`
+	DisplayName string `yaml:"display_name,omitempty" json:"display_name,omitempty"`
+	Icon        string `yaml:"icon,omitempty" json:"icon,omitempty"`
+}
+
+// UnmarshalYAML supports both shorthand string ("engine", "engine:profile") and map structure
+func (c *InputMethodConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var str string
+	if err := unmarshal(&str); err == nil {
+		parts := strings.SplitN(str, ":", 2)
+		c.Engine = parts[0]
+		if len(parts) == 2 {
+			c.Profile = parts[1]
+		}
+		return nil
+	}
+
+	type rawInputMethodConfig InputMethodConfig
+	var raw rawInputMethodConfig
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+	*c = InputMethodConfig(raw)
+	return nil
+}
+
 // Config represents the application configuration
 type Config struct {
-	Version            int                `yaml:"version" json:"version"`
-	Description        string             `yaml:"description" json:"description"`
-	DefaultInputMethod string             `yaml:"default_input_method" json:"default_input_method"`
-	InputMethods       map[string]string  `yaml:"input_methods" json:"input_methods"`
-	ClientRules        []ClientRule       `yaml:"client_rules" json:"client_rules"`
-	LayerRules         []LayerRule        `yaml:"layer_rules" json:"layer_rules"`
-	Fcitx5             Fcitx5Config       `yaml:"fcitx5" json:"fcitx5"`
-	RimeSchemas        map[string]string  `yaml:"rime_schemas" json:"rime_schemas"`
-	Notifications      NotificationConfig `yaml:"notifications" json:"notifications"`
-	DisplayNames       map[string]string  `yaml:"display_names" json:"display_names"`
-	Icons              map[string]string  `yaml:"icons" json:"icons"`
+	Version            int                          `yaml:"version" json:"version"`
+	Description        string                       `yaml:"description" json:"description"`
+	DefaultInputMethod string                       `yaml:"default_input_method" json:"default_input_method"`
+	InputMethods       map[string]InputMethodConfig `yaml:"input_methods" json:"input_methods"`
+	ClientRules        []ClientRule                 `yaml:"client_rules" json:"client_rules"`
+	LayerRules         []LayerRule                  `yaml:"layer_rules" json:"layer_rules"`
+	Fcitx5             Fcitx5Config                 `yaml:"fcitx5" json:"fcitx5"`
+	RimeSchemas        map[string]string            `yaml:"rime_schemas" json:"rime_schemas"`
+	Notifications      NotificationConfig           `yaml:"notifications" json:"notifications"`
+	DisplayNames       map[string]string            `yaml:"display_names" json:"display_names"`
+	Icons              map[string]string            `yaml:"icons" json:"icons"`
 }
 
 // ClientRule represents a client-specific input method rule
