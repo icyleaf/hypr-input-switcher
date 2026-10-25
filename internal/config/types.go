@@ -85,6 +85,8 @@ type NotificationConfig struct {
 
 // WindowInfo represents active window information
 type WindowInfo struct {
-	Class string `json:"class"`
-	Title string `json:"title"`
+	Class      string `json:"class"`
+	Title      string `json:"title"`
+	IsKeep     bool   `json:"is_keep,omitempty"`
+	IsRestored bool   `json:"is_restored,omitempty"`
 }

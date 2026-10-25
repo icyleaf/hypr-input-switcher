@@ -347,6 +347,59 @@ func TestPerAppMemory(t *testing.T) {
 	}
 }
 
+func TestLayerEventDoesNotTriggerNotificationWhenInputMethodAndWindowUnchanged(t *testing.T) {
+	switcher := NewSwitcher(&config.Config{
+		DefaultInputMethod: "keep",
+		ClientRules: []config.ClientRule{
+			{Class: "ghostty", InputMethod: config.KeepInputMethod},
+		},
+		Notifications: config.NotificationConfig{
+			Enabled:      true,
+			ShowOnSwitch: true,
+		},
+	})
+	notifier := &recordingNotifier{}
+	switcher.SetNotifier(notifier)
+	ghosttyClient := &ClientInfo{Address: "0x123", Class: "ghostty", Title: "terminal"}
+
+	// 1. Switch to ghostty window initially: notifications may fire on initial focus
+	if err := switcher.processWindowChange(ghosttyClient); err != nil {
+		t.Fatalf("processWindowChange() error = %v", err)
+	}
+	initialCalls := notifier.calls
+
+	// 2. An unrelated layer opens and closes (e.g. notification popup, bar, etc.)
+	switcher.handleLayerEvent("some-layer", true)
+	if switcher.layers.isOpen("some-layer") {
+		t.Fatal("handleLayerEvent opened unconfigured layer, want ignored")
+	}
+	if notifier.calls != initialCalls {
+		t.Fatalf("handleLayerEvent(open) sent spurious notification: calls = %d, want %d", notifier.calls, initialCalls)
+	}
+
+	switcher.handleLayerEvent("some-layer", false)
+	if notifier.calls != initialCalls {
+		t.Fatalf("handleLayerEvent(close) sent spurious notification: calls = %d, want %d", notifier.calls, initialCalls)
+	}
+
+	// 3. A configured layer opens with keep input method: should not notify
+	switcher.config.LayerRules = []config.LayerRule{
+		{Namespace: "icyleaf-calculator", InputMethod: config.KeepInputMethod},
+	}
+	switcher.currentIM = "english"
+	switcher.appHistory["ghostty"] = "english"
+	switcher.handleLayerEvent("icyleaf-calculator", true)
+	if notifier.calls != initialCalls {
+		t.Fatalf("handleLayerEvent(open configured keep) sent spurious notification: calls = %d, want %d", notifier.calls, initialCalls)
+	}
+
+	switcher.handleLayerEvent("icyleaf-calculator", false)
+	if notifier.calls != initialCalls {
+		t.Fatalf("handleLayerEvent(close configured keep) sent spurious notification: calls = %d, want %d", notifier.calls, initialCalls)
+	}
+}
+
+
 func TestProfileAndEngineResolution(t *testing.T) {
 	cfg := &config.Config{
 		DefaultInputMethod: "chinese",

@@ -127,13 +127,22 @@ func (n *Notifier) Show(title, message, icon string) {
 	}
 }
 
-// ShowInputMethodSwitch shows input method switch notification
-func (n *Notifier) ShowInputMethodSwitch(inputMethod string, clientInfo *config.WindowInfo) {
+// formatNotificationContent returns the title and message for a switch notification
+func (n *Notifier) formatNotificationContent(inputMethod string, clientInfo *config.WindowInfo) (string, string) {
 	displayName := n.getDisplayName(inputMethod)
-	icon := n.getIcon(inputMethod)
 
 	title := "Input Method Switched"
 	message := fmt.Sprintf("Switched to %s", displayName)
+
+	if clientInfo != nil && clientInfo.IsKeep {
+		if clientInfo.IsRestored {
+			title = "Input Method Restored"
+			message = fmt.Sprintf("Restored to %s (keep)", displayName)
+		} else {
+			title = "Input Method Kept"
+			message = fmt.Sprintf("Kept as %s (keep)", displayName)
+		}
+	}
 
 	// If configured to show app name
 	if n.config.Notifications.ShowAppName && clientInfo != nil {
@@ -143,6 +152,14 @@ func (n *Notifier) ShowInputMethodSwitch(inputMethod string, clientInfo *config.
 		}
 		title = appName
 	}
+
+	return title, message
+}
+
+// ShowInputMethodSwitch shows input method switch notification
+func (n *Notifier) ShowInputMethodSwitch(inputMethod string, clientInfo *config.WindowInfo) {
+	title, message := n.formatNotificationContent(inputMethod, clientInfo)
+	icon := n.getIcon(inputMethod)
 
 	n.Show(title, message, icon)
 }

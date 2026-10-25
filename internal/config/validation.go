@@ -2,10 +2,24 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	"gopkg.in/yaml.v2"
 )
+
+// nonInteractiveLayerNamespaces contains layer-shell namespaces known to be non-interactive
+// overlays (such as notification daemons and OSD popups) that do not take keyboard focus.
+// Configuring these in layer_rules causes input method hijacking and notification feedback loops.
+var nonInteractiveLayerNamespaces = map[string]string{
+	"omarchy-notifications":      "Omarchy notification daemon",
+	"omarchy-osd":                "Omarchy on-screen display overlay",
+	"mako":                       "Mako notification daemon",
+	"dunst":                      "Dunst notification daemon",
+	"swaync":                     "SwayNC notification center",
+	"swaync-notification-window": "SwayNC notification window",
+	"hyprland-notification":      "Hyprland notification overlay",
+}
 
 func LoadConfig(filePath string) (*Config, error) {
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -95,6 +109,11 @@ func validateConfig(config *Config) error {
 	}
 	if len(config.ClientRules) == 0 && len(config.LayerRules) == 0 {
 		return errors.New("at least one of client rules or layer rules must be defined")
+	}
+	for _, rule := range config.LayerRules {
+		if desc, ok := nonInteractiveLayerNamespaces[rule.Namespace]; ok {
+			return fmt.Errorf("layer rule namespace %q is a %s and does not take keyboard focus; configuring it in layer_rules causes input method hijacking and notification feedback loops", rule.Namespace, desc)
+		}
 	}
 	return nil
 }

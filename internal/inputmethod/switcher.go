@@ -294,7 +294,19 @@ func (s *Switcher) processWindowChange(clientInfo *ClientInfo) error {
 
 	logger.Debugf("Window changed: %s - %s (address: %s)", clientInfo.Class, clientInfo.Title, clientInfo.Address)
 
-	return s.applyResolution(s.resolveTarget(clientInfo), clientInfo)
+	return s.applyResolution(s.resolveTarget(clientInfo), clientInfo, true)
+}
+
+func (s *Switcher) hasLayerRule(namespace string) bool {
+	if s.config == nil {
+		return false
+	}
+	for _, rule := range s.config.LayerRules {
+		if rule.Namespace == namespace {
+			return true
+		}
+	}
+	return false
 }
 
 // handleLayerEvent updates the open-layer bookkeeping and recomputes the target
@@ -306,6 +318,11 @@ func (s *Switcher) handleLayerEvent(namespace string, isOpen bool) {
 	namespace = strings.TrimSpace(namespace)
 	if namespace == "" {
 		logger.Tracef("Empty layer event namespace")
+		return
+	}
+
+	if !s.hasLayerRule(namespace) {
+		logger.Tracef("Layer %s has no configured rule, ignoring", namespace)
 		return
 	}
 
@@ -326,15 +343,29 @@ func (s *Switcher) handleLayerEvent(namespace string, isOpen bool) {
 		s.currentClient = clientInfo
 	}
 
-	if err := s.applyResolution(s.resolveTarget(clientInfo), clientInfo); err != nil {
+	if err := s.applyResolution(s.resolveTarget(clientInfo), clientInfo, false); err != nil {
 		logger.Warningf("Error applying layer rule for %s: %v", namespace, err)
 	}
+}
+
+func (s *Switcher) makeWindowInfo(resolution targetResolution, clientInfo *ClientInfo) *config.WindowInfo {
+	windowInfo := &config.WindowInfo{
+		IsKeep:     resolution.isKeep,
+		IsRestored: resolution.isRestored,
+	}
+	if resolution.layerNamespace != "" {
+		windowInfo.Class = resolution.layerNamespace
+	} else if clientInfo != nil {
+		windowInfo.Class = clientInfo.Class
+		windowInfo.Title = clientInfo.Title
+	}
+	return windowInfo
 }
 
 // applyResolution switches to the resolved input method. The keep target
 // preserves the active input method without querying or invoking the configured
 // input method backend.
-func (s *Switcher) applyResolution(resolution targetResolution, clientInfo *ClientInfo) error {
+func (s *Switcher) applyResolution(resolution targetResolution, clientInfo *ClientInfo, isWindowSwitch bool) error {
 	targetIM := resolution.inputMethod
 
 	if targetIM == config.KeepInputMethod {
@@ -349,15 +380,9 @@ func (s *Switcher) applyResolution(resolution targetResolution, clientInfo *Clie
 			}
 			s.currentIM = currentIM
 
-			// Show notification for the kept input method
-			if s.notifier != nil && s.config.Notifications.ShowOnSwitch {
-				windowInfo := &config.WindowInfo{}
-				if resolution.layerNamespace != "" {
-					windowInfo.Class = resolution.layerNamespace
-				} else if clientInfo != nil {
-					windowInfo.Class = clientInfo.Class
-					windowInfo.Title = clientInfo.Title
-				}
+			// Show notification for the kept input method only on genuine window switch
+			if isWindowSwitch && s.notifier != nil && s.config.Notifications.ShowOnSwitch {
+				windowInfo := s.makeWindowInfo(resolution, clientInfo)
 				s.notifier.ShowInputMethodSwitch(currentIM, windowInfo)
 			}
 		}
@@ -375,16 +400,10 @@ func (s *Switcher) applyResolution(resolution targetResolution, clientInfo *Clie
 	logger.Debugf("Current IM: %s -> Target IM: %s", currentIM, targetIM)
 
 	if currentIM == targetIM || currentIM == "unknown" {
-		if resolution.isKeep && currentIM != "unknown" {
-			// When window is governed by keep, notify user of the active input method
+		if isWindowSwitch && resolution.isKeep && currentIM != "unknown" {
+			// When window is governed by keep, notify user of the active input method on window switch
 			if s.notifier != nil && s.config.Notifications.ShowOnSwitch {
-				windowInfo := &config.WindowInfo{}
-				if resolution.layerNamespace != "" {
-					windowInfo.Class = resolution.layerNamespace
-				} else if clientInfo != nil {
-					windowInfo.Class = clientInfo.Class
-					windowInfo.Title = clientInfo.Title
-				}
+				windowInfo := s.makeWindowInfo(resolution, clientInfo)
 				s.notifier.ShowInputMethodSwitch(currentIM, windowInfo)
 			}
 		}
@@ -400,13 +419,7 @@ func (s *Switcher) applyResolution(resolution targetResolution, clientInfo *Clie
 
 	// Show notification if notifier is available and enabled
 	if s.notifier != nil && s.config.Notifications.ShowOnSwitch {
-		windowInfo := &config.WindowInfo{}
-		if resolution.layerNamespace != "" {
-			windowInfo.Class = resolution.layerNamespace
-		} else if clientInfo != nil {
-			windowInfo.Class = clientInfo.Class
-			windowInfo.Title = clientInfo.Title
-		}
+		windowInfo := s.makeWindowInfo(resolution, clientInfo)
 		s.notifier.ShowInputMethodSwitch(targetIM, windowInfo)
 	}
 
@@ -570,6 +583,7 @@ type targetResolution struct {
 	inputMethod    string
 	layerNamespace string
 	isKeep         bool
+	isRestored     bool
 }
 
 // resolveMatchedRule handles when an explicit client rule matches
@@ -582,7 +596,7 @@ func (s *Switcher) resolveMatchedRule(target, className string) targetResolution
 	if className != "" {
 		if remembered, ok := s.appHistory[className]; ok && remembered != "" && remembered != config.KeepInputMethod {
 			logger.Tracef("Restoring remembered input method for class %s: %s", className, remembered)
-			return targetResolution{inputMethod: remembered, isKeep: true}
+			return targetResolution{inputMethod: remembered, isKeep: true, isRestored: true}
 		}
 	}
 
@@ -597,7 +611,7 @@ func (s *Switcher) resolveDefaultRule(className string) targetResolution {
 	if className != "" {
 		if remembered, ok := s.appHistory[className]; ok && remembered != "" && remembered != config.KeepInputMethod {
 			logger.Tracef("Restoring remembered input method for class %s: %s", className, remembered)
-			return targetResolution{inputMethod: remembered, isKeep: isDefaultKeep}
+			return targetResolution{inputMethod: remembered, isKeep: isDefaultKeep, isRestored: isDefaultKeep}
 		}
 	}
 

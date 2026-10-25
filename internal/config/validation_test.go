@@ -67,6 +67,19 @@ func TestLoadConfigRejectsConfigWithoutAnyRules(t *testing.T) {
 	}
 }
 
+func TestLoadConfigRejectsNonInteractiveLayerRules(t *testing.T) {
+	for ns := range nonInteractiveLayerNamespaces {
+		path := writeConfig(t, baseConfig+`
+layer_rules:
+  - namespace: `+ns+`
+    input_method: english
+`)
+		if _, err := LoadConfig(path); err == nil {
+			t.Fatalf("LoadConfig() error = nil, want error when non-interactive layer %q is used in layer_rules", ns)
+		}
+	}
+}
+
 func TestLoadConfigInputMethodFormatsAndNormalize(t *testing.T) {
 	configYaml := `
 version: 2
