@@ -22,9 +22,10 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       link: {
         type: 'doc',
-        id: 'configuration/v2',
+        id: 'configuration/v3',
       },
       items: [
+        'configuration/v3',
         'configuration/v2',
         'configuration/v1',
       ],

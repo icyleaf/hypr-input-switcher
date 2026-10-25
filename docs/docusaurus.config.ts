@@ -77,7 +77,7 @@ const config: Config = {
             },
             {
               label: 'Configuration',
-              to: '/docs/configuration/v2',
+              to: '/docs/configuration/v3',
             },
           ],
         },

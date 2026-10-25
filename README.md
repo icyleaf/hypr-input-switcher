@@ -311,7 +311,7 @@ hyprctl monitors
 The full annotated template is [`configs/default.yaml`](configs/default.yaml). A condensed example:
 
 ```yaml
-version: 2
+version: 3
 description: Hyprland Input Method Switcher Configuration
 
 # Input method definitions (supports full object, engine:profile, or plain engine shorthand)

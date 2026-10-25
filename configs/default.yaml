@@ -5,13 +5,13 @@
 #
 # Full reference: https://github.com/icyleaf/hypr-input-switcher#configuration
 
-version: 2
+version: 3
 description: Hyprland Input Method Switcher Configuration
 
 # Input method labels used by the rules below.
 #
 # Each entry specifies an input method engine (e.g. keyboard-us, msime, rime)
-# and optional sub-mode/schema profile.
+# and optional sub-mode/schema profile, display name, and notification icon.
 #
 # Full object format:
 #   japanese:
@@ -25,9 +25,20 @@ description: Hyprland Input Method Switcher Configuration
 #   chinese: msime
 #   japanese: rime:jaroomaji
 input_methods:
-  english: keyboard-us
-  chinese: rime:rime_frost
-  japanese: rime:jaroomaji
+  english:
+    engine: keyboard-us
+    display_name: English
+    icon: 🇺🇸
+  chinese:
+    engine: rime
+    profile: rime_frost
+    display_name: 中文
+    icon: 🇨🇳
+  japanese:
+    engine: rime
+    profile: jaroomaji
+    display_name: 日本語
+    icon: 🇯🇵
 
 # Window rules, matched against the active window's class (and optionally
 # title). Use `hyprctl activewindow` / `hyprctl clients` to find class names.
@@ -74,12 +85,6 @@ fcitx5:
   # The fcitx5 input method name that Rime is registered under.
   rime_input_method: rime
 
-# Maps input method labels to Rime schema names. Required for any non-english
-# label used in the rules above.
-rime_schemas:
-  chinese: rime_frost
-  japanese: jaroomaji
-
 notifications:
   enabled: true
   duration: 2000 # Duration in milliseconds
@@ -97,16 +102,13 @@ notifications:
   force_method: "" # Force one method; empty means auto-detect
   disabled_methods: [] # Methods to skip, e.g. ["mako"]
 
-# Human-readable names shown in notifications.
-display_names:
-  english: English
-  chinese: 中文
-  japanese: 日本語
-
-# Icons shown in notifications. Each value may be an emoji, a bundled icon file
-# name (e.g. "cn.svg"), or an absolute path to an image.
-#
+# Legacy compatibility fields (deprecated in v3, use input_methods instead):
+# rime_schemas:
+#   chinese: rime_frost
+#   japanese: jaroomaji
+# display_names:
+#   english: English
+#   chinese: 中文
+#   japanese: 日本語
 # icons:
 #   english: "🇺🇸"
-#   chinese: "cn.svg"
-#   japanese: "/absolute/path/to/jp.png"
