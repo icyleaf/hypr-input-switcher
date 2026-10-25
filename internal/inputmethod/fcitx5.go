@@ -22,11 +22,13 @@ const (
 
 type Fcitx5 struct {
 	rimeInputMethod string
+	inputMethods    map[string]string
 }
 
-func NewFcitx5(rimeInputMethod string) *Fcitx5 {
+func NewFcitx5(rimeInputMethod string, inputMethods map[string]string) *Fcitx5 {
 	return &Fcitx5{
 		rimeInputMethod: rimeInputMethod,
+		inputMethods:    inputMethods,
 	}
 }
 
@@ -48,7 +50,7 @@ func (f *Fcitx5) IsAvailable() bool {
 // the name of the configured input method even while it is inactive, so the
 // state is what distinguishes an active method from the keyboard layout: only
 // an active controller can be a real input method, anything else is English.
-func resolveFcitx5InputMethod(state int, currentIM, rimeInputMethod string) string {
+func resolveFcitx5InputMethod(state int, currentIM, rimeInputMethod string, inputMethods map[string]string) string {
 	if state != fcitxStateActive {
 		return "english"
 	}
@@ -57,12 +59,18 @@ func resolveFcitx5InputMethod(state int, currentIM, rimeInputMethod string) stri
 		return "rime"
 	}
 
+	for label, im := range inputMethods {
+		if im == currentIM {
+			return label
+		}
+	}
+
 	return "english"
 }
 
 // GetCurrent gets current input method via fcitx5
 func (f *Fcitx5) GetCurrent() string {
-	return resolveFcitx5InputMethod(f.GetState(), f.getCurrentName(), f.rimeInputMethod)
+	return resolveFcitx5InputMethod(f.GetState(), f.getCurrentName(), f.rimeInputMethod, f.inputMethods)
 }
 
 // GetState returns the fcitx5 controller state via D-Bus, falling back to
@@ -180,20 +188,20 @@ func (f *Fcitx5) switchToEnglishViaDBus() error {
 	return nil
 }
 
-// SwitchToRime switches to Rime input method
-func (f *Fcitx5) SwitchToRime() error {
+// SwitchToIM switches to a specific input method by name
+func (f *Fcitx5) SwitchToIM(imName string) error {
 	// Try D-Bus first
-	if err := f.switchToRimeViaDBus(); err == nil {
+	if err := f.switchToIMViaDBus(imName); err == nil {
 		return nil
 	}
 
 	// Fallback to fcitx5-remote
-	return f.switchToRimeFallback()
+	return f.switchToIMFallback(imName)
 }
 
-// switchToRimeViaDBus switches to Rime via D-Bus
-func (f *Fcitx5) switchToRimeViaDBus() error {
-	logger.Debug("Switching to Rime input method via D-Bus")
+// switchToIMViaDBus switches to an input method via D-Bus
+func (f *Fcitx5) switchToIMViaDBus(imName string) error {
+	logger.Debugf("Switching to input method %s via D-Bus", imName)
 
 	conn, err := dbus.SessionBus()
 	if err != nil {
@@ -210,19 +218,19 @@ func (f *Fcitx5) switchToRimeViaDBus() error {
 
 	time.Sleep(100 * time.Millisecond)
 
-	// Step 2: Switch to rime input method
-	call = obj.Call("org.fcitx.Fcitx.Controller1.SetCurrentIM", 0, f.rimeInputMethod)
+	// Step 2: Switch to specified input method
+	call = obj.Call("org.fcitx.Fcitx.Controller1.SetCurrentIM", 0, imName)
 	if call.Err != nil {
 		return call.Err
 	}
 
-	logger.Debug("Successfully switched to Rime via D-Bus")
+	logger.Debugf("Successfully switched to %s via D-Bus", imName)
 	return nil
 }
 
-// switchToRimeFallback switches to Rime using fallback method
-func (f *Fcitx5) switchToRimeFallback() error {
-	logger.Debug("Using fcitx5-remote fallback method for Rime")
+// switchToIMFallback switches to an input method using fallback method
+func (f *Fcitx5) switchToIMFallback(imName string) error {
+	logger.Debugf("Using fcitx5-remote fallback method for %s", imName)
 
 	cmd := exec.Command("fcitx5-remote", "-o")
 	if err := cmd.Run(); err != nil {
@@ -231,6 +239,11 @@ func (f *Fcitx5) switchToRimeFallback() error {
 
 	time.Sleep(100 * time.Millisecond)
 
-	cmd = exec.Command("fcitx5-remote", "-s", f.rimeInputMethod)
+	cmd = exec.Command("fcitx5-remote", "-s", imName)
 	return cmd.Run()
+}
+
+// SwitchToRime switches to Rime input method
+func (f *Fcitx5) SwitchToRime() error {
+	return f.SwitchToIM(f.rimeInputMethod)
 }

@@ -309,3 +309,40 @@ func TestVerifySwitchReachedTarget(t *testing.T) {
 		})
 	}
 }
+
+func TestPerAppMemory(t *testing.T) {
+	switcher := NewSwitcher(&config.Config{
+		DefaultInputMethod: "chinese",
+		ClientRules: []config.ClientRule{
+			{Class: "code", InputMethod: "english"},
+			{Class: "ghostty", InputMethod: config.KeepInputMethod},
+		},
+	})
+
+	// 1. Ghostty cold-start has no history, explicit keep rule returns keep
+	target := switcher.resolveTarget(&ClientInfo{Class: "ghostty", Title: "terminal"})
+	if target.inputMethod != config.KeepInputMethod {
+		t.Fatalf("cold-start ghostty target = %q, want %q", target.inputMethod, config.KeepInputMethod)
+	}
+
+	// 2. Simulate user typing in Chinese in Ghostty, recording app history
+	switcher.appHistory["ghostty"] = "chinese"
+
+	// 3. Switch to Code (matches explicit english rule)
+	codeTarget := switcher.resolveTarget(&ClientInfo{Class: "code", Title: "main.go"})
+	if codeTarget.inputMethod != "english" {
+		t.Fatalf("code target = %q, want %q", codeTarget.inputMethod, "english")
+	}
+
+	// 4. Switch back to Ghostty (explicit keep rule restores remembered chinese)
+	ghosttyTarget := switcher.resolveTarget(&ClientInfo{Class: "ghostty", Title: "terminal"})
+	if ghosttyTarget.inputMethod != "chinese" {
+		t.Fatalf("restored ghostty target = %q, want %q", ghosttyTarget.inputMethod, "chinese")
+	}
+
+	// 5. Unconfigured app cold-start falls back to DefaultInputMethod
+	unconfiguredTarget := switcher.resolveTarget(&ClientInfo{Class: "wechat", Title: "chat"})
+	if unconfiguredTarget.inputMethod != "chinese" {
+		t.Fatalf("unconfigured cold-start target = %q, want %q", unconfiguredTarget.inputMethod, "chinese")
+	}
+}
