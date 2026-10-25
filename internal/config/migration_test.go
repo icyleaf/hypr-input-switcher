@@ -113,3 +113,54 @@ client_rules:
 		t.Errorf("len(ClientRules) = %d, want 2", len(cfg.ClientRules))
 	}
 }
+
+func TestManagerAutoMigrate(t *testing.T) {
+	v2Yaml := `version: 2
+description: "v2 config"
+default_input_method: "keep"
+input_methods:
+  english: "keyboard-us"
+  chinese: "msime"
+  japanese: "rime"
+rime_schemas:
+  japanese: "jaroomaji"
+client_rules:
+  - class: "kitty"
+    input_method: "english"
+`
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.yaml")
+
+	if err := os.WriteFile(configPath, []byte(v2Yaml), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	mgr, err := NewManager(configPath)
+	if err != nil {
+		t.Fatalf("NewManager() error = %v", err)
+	}
+
+	cfg, err := mgr.Load()
+	if err != nil {
+		t.Fatalf("mgr.Load() error = %v", err)
+	}
+
+	if cfg.Version != 3 {
+		t.Errorf("loaded cfg.Version = %d, want 3", cfg.Version)
+	}
+
+	// Verify backup file was created
+	backupPath := filepath.Join(dir, "config.yaml.v2.bak")
+	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+		t.Errorf("backup file %s does not exist", backupPath)
+	}
+
+	// Verify file on disk was upgraded to version: 3
+	fileCfg, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig(configPath) error = %v", err)
+	}
+	if fileCfg.Version != 3 {
+		t.Errorf("on-disk file version = %d, want 3", fileCfg.Version)
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"hypr-input-switcher/internal/app"
+	"hypr-input-switcher/internal/config"
 	"hypr-input-switcher/pkg/logger"
 
 	"github.com/spf13/cobra"
@@ -38,8 +39,45 @@ var versionCmd = &cobra.Command{
 	},
 }
 
+// migrateCmd represents the migrate command
+var migrateCmd = &cobra.Command{
+	Use:   "migrate [config-file]",
+	Short: "Migrate legacy configuration file to version 3",
+	Args:  cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		setupLogging()
+
+		configPath := viper.GetString("config")
+		if len(args) > 0 {
+			configPath = args[0]
+		}
+		configPath = os.ExpandEnv(configPath)
+
+		absPath, err := filepath.Abs(configPath)
+		if err != nil {
+			logger.Fatalf("Failed to resolve config path: %v", err)
+		}
+
+		if _, err := os.Stat(absPath); os.IsNotExist(err) {
+			logger.Fatalf("Config file does not exist: %s", absPath)
+		}
+
+		mgr, err := config.NewManager(absPath)
+		if err != nil {
+			logger.Fatalf("Failed to initialize config manager: %v", err)
+		}
+
+		if _, err := mgr.Load(); err != nil {
+			logger.Fatalf("Failed to migrate configuration: %v", err)
+		}
+
+		fmt.Printf("Configuration at %s migrated successfully.\n", absPath)
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(migrateCmd)
 
 	// Get default config path
 	defaultConfigPath := getDefaultConfigPath()

@@ -40,19 +40,19 @@ type Config struct {
 	Description        string                       `yaml:"description" json:"description"`
 	DefaultInputMethod string                       `yaml:"default_input_method" json:"default_input_method"`
 	InputMethods       map[string]InputMethodConfig `yaml:"input_methods" json:"input_methods"`
-	ClientRules        []ClientRule                 `yaml:"client_rules" json:"client_rules"`
-	LayerRules         []LayerRule                  `yaml:"layer_rules" json:"layer_rules"`
+	ClientRules        []ClientRule                 `yaml:"client_rules,omitempty" json:"client_rules,omitempty"`
+	LayerRules         []LayerRule                  `yaml:"layer_rules,omitempty" json:"layer_rules,omitempty"`
 	Fcitx5             Fcitx5Config                 `yaml:"fcitx5" json:"fcitx5"`
-	RimeSchemas        map[string]string            `yaml:"rime_schemas" json:"rime_schemas"`
+	RimeSchemas        map[string]string            `yaml:"rime_schemas,omitempty" json:"rime_schemas,omitempty"`
 	Notifications      NotificationConfig           `yaml:"notifications" json:"notifications"`
-	DisplayNames       map[string]string            `yaml:"display_names" json:"display_names"`
-	Icons              map[string]string            `yaml:"icons" json:"icons"`
+	DisplayNames       map[string]string            `yaml:"display_names,omitempty" json:"display_names,omitempty"`
+	Icons              map[string]string            `yaml:"icons,omitempty" json:"icons,omitempty"`
 }
 
 // ClientRule represents a client-specific input method rule
 type ClientRule struct {
 	Class       string `yaml:"class" json:"class"`
-	Title       string `yaml:"title" json:"title"`
+	Title       string `yaml:"title,omitempty" json:"title,omitempty"`
 	InputMethod string `yaml:"input_method" json:"input_method"`
 }
 
@@ -67,8 +67,8 @@ type LayerRule struct {
 // Fcitx5Config represents fcitx5 configuration
 type Fcitx5Config struct {
 	Enabled         bool   `yaml:"enabled" json:"enabled"`
-	RimeInputMethod string `yaml:"rime_input_method" json:"rime_input_method"`
-	RimeConfigDir   string `yaml:"rime_config_dir" json:"rime_config_dir"`
+	RimeInputMethod string `yaml:"rime_input_method,omitempty" json:"rime_input_method,omitempty"`
+	RimeConfigDir   string `yaml:"rime_config_dir,omitempty" json:"rime_config_dir,omitempty"`
 }
 
 // NotificationConfig represents notification configuration

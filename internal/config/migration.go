@@ -7,7 +7,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const currentConfigVersion = 3
+const CurrentConfigVersion = 3
 
 type OldConfig struct {
 	Version            int                `yaml:"version"`
@@ -30,7 +30,7 @@ func MigrateConfig(oldConfigPath string, newConfigPath string) error {
 	}
 
 	cfg := Config{
-		Version:            currentConfigVersion,
+		Version:            CurrentConfigVersion,
 		Description:        oldConfig.Description,
 		DefaultInputMethod: oldConfig.DefaultInputMethod,
 		LayerRules:         oldConfig.LayerRules,
@@ -166,7 +166,7 @@ func loadOldConfig(path string) (OldConfig, error) {
 		return config, fmt.Errorf("failed to unmarshal old config: %w", err)
 	}
 
-	if config.Version < 1 || config.Version > currentConfigVersion {
+	if config.Version < 1 || config.Version > CurrentConfigVersion {
 		return config, fmt.Errorf("unsupported config version: %d", config.Version)
 	}
 
