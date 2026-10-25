@@ -16,7 +16,19 @@ const sidebars: SidebarsConfig = {
   tutorialSidebar: [
     'intro',
     'installation',
-    'configuration',
+    {
+      type: 'category',
+      label: 'Configuration',
+      collapsed: false,
+      link: {
+        type: 'doc',
+        id: 'configuration/v2',
+      },
+      items: [
+        'configuration/v2',
+        'configuration/v1',
+      ],
+    },
     'omarchy-plugin',
   ],
 };
