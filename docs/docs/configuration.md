@@ -24,36 +24,21 @@ If you are running **Omarchy Linux (4.0+)**, you can configure and manage all yo
 Here's a minimal configuration example:
 
 ```yaml
-# Input method labels used by the rules below
+# Unified Input Method Definitions
 input_methods:
-  english: keyboard-us
-  chinese: rime
-  japanese: rime
-
-# Rime schema mapping
-rime_schemas:
-  chinese: rime_frost
-  japanese: jaroomaji
-
-# Notification settings
-notifications:
-  enabled: true
-  duration: 2000
-  show_on_switch: true
-  show_app_name: true
-  icon_path: "~/.local/share/hypr-input-switcher/icons"
-  methods:
-    - notify-send
-    - dunstify
-    - hyprctl
-    - swaync-client
-    - mako
-
-# Display names for input methods
-display_names:
-  english: English
-  chinese: 中文
-  japanese: 日本語
+  english:
+    engine: keyboard-us
+    display_name: English
+    icon: 🇺🇸
+  chinese:
+    engine: msime
+    display_name: 中文
+    icon: 🇨🇳
+  japanese:
+    engine: rime
+    profile: jaroomaji
+    display_name: 日本語
+    icon: 🇯🇵
 
 # Application-specific rules
 client_rules:
@@ -63,9 +48,21 @@ client_rules:
     input_method: english
   - class: code
     input_method: english
+  - class: ghostty
+    input_method: keep
 
-# Default input method when no rule matches ("keep" preserves the current one)
-default_input_method: english
+# Default input method when no rule matches ("keep" restores per-app history)
+default_input_method: keep
+
+# Notification settings
+notifications:
+  enabled: true
+  duration: 2000
+  show_on_switch: true
+  show_app_name: true
+  methods:
+    - notify-send
+    - hyprctl
 ```
 
 The complete annotated template is shipped as `configs/default.yaml`.
@@ -186,32 +183,45 @@ The application searches for icon files in this order:
 | `hyprctl` | ❌ | ✅ | ❌ |
 | `swaync-client` | ❌ | ✅ | ❌ |
 
-## Rime Schemas
+## Input Methods and Multi-Engine Architecture
 
-Configure Rime input method schemas:
+In the unified v2 configuration specification, each entry under `input_methods` defines an input method entity that encapsulates its underlying engine, sub-mode/schema profile, and presentation attributes:
 
 ```yaml
-rime_schemas:
-  chinese: rime_frost     # Use rime_frost schema for Chinese
-  japanese: jaroomaji     # Use jaroomaji schema for Japanese
-  korean: hangul          # Use hangul schema for Korean
+input_methods:
+  # 1. Full object specification (recommended for clarity)
+  japanese:
+    engine: rime
+    profile: jaroomaji
+    display_name: 日本語
+    icon: 🇯🇵
+
+  chinese:
+    engine: msime
+    display_name: 中文
+    icon: 🇨🇳
+
+  # 2. Shorthand syntax with profile
+  korean: rime:hangul
+
+  # 3. Plain engine shorthand syntax
+  english: keyboard-us
 ```
 
-### How English Is Reached
+### Supported Properties
 
-English is the fcitx5 **inactive state**: switching to `english` deactivates
-fcitx5, so keystrokes fall through to the keyboard layout. Switching to a
-Rime-backed method activates fcitx5 and selects the Rime schema.
+- **`engine`** (*string*, required): The underlying fcitx5 input method name (e.g. `keyboard-us`, `msime`, `rime`, `mozc`).
+- **`profile`** (*string*, optional): The unified sub-mode or schema identifier. For the `rime` engine, this corresponds to the Rime schema name (e.g. `jaroomaji`, `rime_frost`).
+- **`display_name`** (*string*, optional): Human-readable name displayed in notifications.
+- **`icon`** (*string*, optional): Emoji or icon path displayed in notifications.
 
-The fcitx5 controller keeps reporting the configured input method **name** even
-while inactive (`CurrentInputMethod` still returns `rime` after deactivation),
-so the switcher distinguishes them by the controller **state**
-(`Controller1.State`): `0` (not running) and `1` (idle) are `english`, `2`
-(active) is the configured method.
+### How English Is Handled
 
-Rime's ASCII mode (`Rime1.SetAsciiMode`) is intentionally not used: it is a
-sticky state that fcitx5's own `Ctrl+Space` toggle does not clear, so leaving it
-on traps the user in a keyboard-layout/ASCII loop.
+When switching to an `english` rule, the switcher selects the configured English layout engine (`keyboard-us`) directly without deactivating the fcitx5 controller. This avoids disruptively tearing down controller state and preserves active input contexts when navigating across windows. If fcitx5 becomes inactive, the switcher safely recognizes the inactive controller state as English.
+
+### Backward Compatibility with `rime_schemas`
+
+For existing configurations, top-level `rime_schemas`, `display_names`, and `icons` maps continue to work seamlessly. During configuration loading, any top-level schema or display name is automatically normalized and synchronized with `input_methods`.
 
 ## Display Names
 
@@ -274,24 +284,26 @@ client_rules:
     input_method: english
 ```
 
-### Keeping the Current Input Method
+### Keeping the Current Input Method and Per-App Memory
 
-Use the reserved value `keep` when a window should preserve whichever input
-method is currently active. It does not need to be declared in `input_methods`
-or `rime_schemas`.
+Use the reserved value `keep` when an application should preserve or restore its own active input method.
 
 ```yaml
 client_rules:
-  # Keep the current input method when switching to Chrome
-  - class: google-chrome
+  # Preserve input method when switching to Ghostty terminal
+  - class: ghostty
     input_method: keep
 
-# Keep the current input method for every window not matched above
+# Default for all unmatched applications
 default_input_method: keep
 ```
 
-No input method switch or switch notification is performed when `keep` is
-selected.
+#### How Per-App Memory Works
+1. **Focus Departure Tracking**: When leaving an application window, the daemon caches its last-active input method keyed by window class (`clientInfo.Class`).
+2. **Memory Restoration**: When refocusing an application whose rule evaluates to `keep` (or when no explicit rule matches and `default_input_method` is `keep`), the switcher restores that application's remembered input method rather than inheriting whatever was left by the previous window.
+3. **Cold-Start Fallback**: When an application is launched for the first time without prior history, the switcher falls back to `default_input_method` (e.g. `chinese` or `keep`).
+
+This prevents "English infection" when navigating between coding editors (which enforce `english`) and communication tools.
 
 ### Advanced Rules
 
@@ -615,3 +627,58 @@ hypr-input-switcher --watch
 # Force reload configuration
 killall -HUP
 ```
+
+## Upgrading to the Unified v2 Specification
+
+If you are using early versions of the v2 configuration where input methods, Rime schemas, display names, and icons were split across separate top-level sections, you can modernize your configuration while maintaining full compatibility.
+
+### Comparison: Early v2 vs. Unified v2
+
+#### Early v2 (Fragmented)
+```yaml
+version: 2
+input_methods:
+  english: keyboard-us
+  chinese: msime
+  japanese: rime
+
+rime_schemas:
+  japanese: jaroomaji
+
+display_names:
+  english: English
+  chinese: 中文
+  japanese: 日本語
+
+icons:
+  english: 🇺🇸
+  chinese: 🇨🇳
+  japanese: 🇯🇵
+```
+
+#### Unified v2 (Cohesive)
+```yaml
+version: 2
+input_methods:
+  english:
+    engine: keyboard-us
+    display_name: English
+    icon: 🇺🇸
+
+  chinese:
+    engine: msime
+    display_name: 中文
+    icon: 🇨🇳
+
+  japanese:
+    engine: rime
+    profile: jaroomaji
+    display_name: 日本語
+    icon: 🇯🇵
+```
+
+### Key Improvements in Unified v2
+1. **Single Point of Configuration**: Adding, modifying, or removing an input method is done in one place under `input_methods`.
+2. **Generic `profile` Abstraction**: `profile` replaces `rime_schemas` and serves as a universal sub-mode identifier for any engine (e.g. Rime schemas, MSIME modes).
+3. **Multi-Engine Ready**: Arbitrary fcitx5 engines (`msime`, `rime`, `keyboard-us`, `mozc`) work without custom daemon flags or code modifications.
+4. **Seamless Backward Compatibility**: Older fragmented v2 configurations are automatically normalized in memory upon loading. No manual file changes are mandatory.
