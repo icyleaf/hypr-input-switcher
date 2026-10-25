@@ -18,7 +18,7 @@ This release marks our largest architectural update to date. It introduces nativ
 
 Prior to v0.6.0, `hypr-input-switcher` was tightly coupled to Rime: non-English input methods were assumed to be Rime schemas, and switching to English deactivated the fcitx5 controller globally. 
 
-In environments running multiple fcitx5 engines—such as `msime` (Microsoft Japanese IME) alongside `rime` for Chinese and `keyboard-us` for English—this caused state mismatch issues:
+In environments running multiple fcitx5 engines—such as [`msime`](https://msime.app/) for Chinese alongside `rime` (for Japanese or dialect schemas) and `keyboard-us` for English—this caused state mismatch issues:
 - Other engines were incorrectly classified as English.
 - Attempting to switch to non-Rime input methods failed because the switcher attempted to set non-existent Rime schemas.
 - Deactivating the controller for English caused disruptive state teardowns across window focus changes.
