@@ -21,7 +21,7 @@ go.work
 /build/
 /dist/
 /bin/
-hypr-input-switcher
+/hypr-input-switcher
 
 # IDE and editor files
 .vscode/

@@ -11,6 +11,7 @@ import (
 	"hypr-input-switcher/pkg/logger"
 
 	"github.com/fsnotify/fsnotify"
+	"gopkg.in/yaml.v2"
 )
 
 type Manager struct {
@@ -65,6 +66,10 @@ func (m *Manager) Load() (*Config, error) {
 		if err := m.createDefaultConfig(); err != nil {
 			return nil, fmt.Errorf("failed to create default config: %w", err)
 		}
+	} else {
+		if err := m.autoMigrateIfNeeded(); err != nil {
+			logger.Warnf("Failed to auto-migrate configuration: %v", err)
+		}
 	}
 
 	config, err := LoadConfig(m.configPath)
@@ -78,6 +83,37 @@ func (m *Manager) Load() (*Config, error) {
 
 	logger.Infof("Configuration loaded from: %s", m.configPath)
 	return config, nil
+}
+
+func (m *Manager) autoMigrateIfNeeded() error {
+	data, err := os.ReadFile(m.configPath)
+	if err != nil {
+		return err
+	}
+
+	var raw struct {
+		Version int `yaml:"version"`
+	}
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	if raw.Version > 0 && raw.Version < CurrentConfigVersion {
+		backupPath := fmt.Sprintf("%s.v%d.bak", m.configPath, raw.Version)
+		if err := copyFile(m.configPath, backupPath); err != nil {
+			logger.Warnf("Failed to create config backup at %s: %v", backupPath, err)
+		} else {
+			logger.Infof("Created backup of version %d configuration at: %s", raw.Version, backupPath)
+		}
+
+		if err := MigrateConfig(m.configPath, m.configPath); err != nil {
+			return fmt.Errorf("failed to migrate configuration from v%d to v%d: %w", raw.Version, CurrentConfigVersion, err)
+		}
+
+		logger.Infof("Successfully migrated configuration file from version %d to version %d", raw.Version, CurrentConfigVersion)
+	}
+
+	return nil
 }
 
 func (m *Manager) GetConfig() *Config {

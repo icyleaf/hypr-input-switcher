@@ -311,21 +311,31 @@ hyprctl monitors
 The full annotated template is [`configs/default.yaml`](configs/default.yaml). A condensed example:
 
 ```yaml
-version: 2
+version: 3
 description: Hyprland Input Method Switcher Configuration
 
-# Input method definitions (labels; `english` means the keyboard layout)
+# Input method definitions (supports full object, engine:profile, or plain engine shorthand)
 input_methods:
-  english: keyboard-us
-  chinese: rime
-  japanese: rime
+  english:
+    engine: keyboard-us
+    display_name: English
+    icon: 🇺🇸
+  chinese:
+    engine: msime
+    display_name: 中文
+    icon: 🇨🇳
+  japanese:
+    engine: rime
+    profile: jaroomaji
+    display_name: 日本語
+    icon: 🇯🇵
 
 # Application-specific rules (use hyprctl to find class names)
 client_rules:
   - class: firefox # Firefox browser
     input_method: chinese
   - class: google-chrome # Chrome browser
-    input_method: chinese
+    input_method: english
   - class: code # VS Code
     input_method: english
   - class: kitty # Kitty terminal
@@ -334,9 +344,8 @@ client_rules:
     input_method: english
   - class: "^(org.telegram.desktop)$" # Telegram (regex)
     input_method: chinese
-  - class: firefox # Firefox with specific title
-    title: ".*GitHub.*"
-    input_method: english
+  - class: ghostty # Preserve/restore terminal input method
+    input_method: keep
 
 # Layer-shell overlay rules (match by namespace, e.g. Omarchy plugins)
 layer_rules:
@@ -345,19 +354,8 @@ layer_rules:
   - namespace: icyleaf-qalculator # icyleaf calculator
     input_method: english
 
-# Default input method when no rules match
-# Use "keep" to preserve the current input method instead
-default_input_method: english
-
-# Fcitx5 configuration
-fcitx5:
-  enabled: true
-  rime_input_method: rime
-
-# Rime schema mappings
-rime_schemas:
-  chinese: rime_frost # Your Rime schema name
-  japanese: jaroomaji # Japanese input schema
+# Default input method when no rules match ("keep" restores per-app memory)
+default_input_method: keep
 
 # Notification settings
 notifications:
@@ -372,18 +370,6 @@ notifications:
     - dunstify # Dunst notifications
   force_method: "" # Force specific method
   disabled_methods: [] # Disable specific methods
-
-# Display names for input methods
-display_names:
-  english: English
-  chinese: 中文
-  japanese: 日本語
-
-# Icons (supports emoji and icon names)
-icons:
-  english: "🇺🇸"
-  chinese: "cn.svg"
-  japanese: "/absolute/path/to/jp.png"
 ```
 
 ## Hyprland Integration

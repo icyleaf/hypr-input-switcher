@@ -77,11 +77,14 @@ func (r *Rime) GetCurrentInputMethod(defaultIM string) string {
 	return mapSchemaToInputMethod(r.GetCurrentSchema(), r.schemas, defaultIM)
 }
 
-// SwitchSchema switches to specified schema
-func (r *Rime) SwitchSchema(targetMethod string) error {
-	schema, exists := r.schemas[targetMethod]
+// SwitchSchema switches to specified schema (by input method label or directly by schema/profile name)
+func (r *Rime) SwitchSchema(target string) error {
+	schema, exists := r.schemas[target]
 	if !exists {
-		return fmt.Errorf("no schema configured for input method: %s", targetMethod)
+		if target == "" {
+			return fmt.Errorf("empty schema specified")
+		}
+		schema = target
 	}
 
 	// Try D-Bus first

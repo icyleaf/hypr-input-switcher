@@ -1,8 +1,18 @@
 package inputmethod
 
-import "testing"
+import (
+	"testing"
+
+	"hypr-input-switcher/internal/config"
+)
 
 func TestResolveFcitx5InputMethod(t *testing.T) {
+	inputMethods := map[string]config.InputMethodConfig{
+		"english":  {Engine: "keyboard-us"},
+		"chinese":  {Engine: "msime"},
+		"japanese": {Engine: "rime", Profile: "jaroomaji"},
+	}
+
 	tests := []struct {
 		name      string
 		state     int
@@ -22,9 +32,21 @@ func TestResolveFcitx5InputMethod(t *testing.T) {
 			want:      "english",
 		},
 		{
+			name:      "active msime maps to chinese",
+			state:     fcitxStateActive,
+			currentIM: "msime",
+			want:      "chinese",
+		},
+		{
 			name:      "inactive controller is english even when it names rime",
 			state:     fcitxStateInactive,
 			currentIM: "rime",
+			want:      "english",
+		},
+		{
+			name:      "inactive controller is english even when it names msime",
+			state:     fcitxStateInactive,
+			currentIM: "msime",
 			want:      "english",
 		},
 		{
@@ -43,7 +65,7 @@ func TestResolveFcitx5InputMethod(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := resolveFcitx5InputMethod(tt.state, tt.currentIM, "rime")
+			got := resolveFcitx5InputMethod(tt.state, tt.currentIM, "rime", inputMethods)
 			if got != tt.want {
 				t.Fatalf("resolveFcitx5InputMethod(%d, %q) = %q, want %q", tt.state, tt.currentIM, got, tt.want)
 			}

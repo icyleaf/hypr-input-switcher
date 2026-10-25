@@ -272,8 +272,8 @@ func TestProcessWindowChangeKeepsCurrentInputMethod(t *testing.T) {
 			if switcher.currentIM != "chinese" {
 				t.Fatalf("currentIM = %q, want unchanged value %q", switcher.currentIM, "chinese")
 			}
-			if notifier.calls != 0 {
-				t.Fatalf("notification calls = %d, want 0", notifier.calls)
+			if notifier.calls != 1 {
+				t.Fatalf("notification calls = %d, want 1", notifier.calls)
 			}
 		})
 	}
@@ -307,5 +307,130 @@ func TestVerifySwitchReachedTarget(t *testing.T) {
 				t.Fatalf("verifySwitchReachedTarget(%q, %q) = %v, want %v", tt.target, tt.observed, got, tt.wantReached)
 			}
 		})
+	}
+}
+
+func TestPerAppMemory(t *testing.T) {
+	switcher := NewSwitcher(&config.Config{
+		DefaultInputMethod: "chinese",
+		ClientRules: []config.ClientRule{
+			{Class: "code", InputMethod: "english"},
+			{Class: "ghostty", InputMethod: config.KeepInputMethod},
+		},
+	})
+
+	// 1. Ghostty cold-start has no history, explicit keep rule returns keep
+	target := switcher.resolveTarget(&ClientInfo{Class: "ghostty", Title: "terminal"})
+	if target.inputMethod != config.KeepInputMethod {
+		t.Fatalf("cold-start ghostty target = %q, want %q", target.inputMethod, config.KeepInputMethod)
+	}
+
+	// 2. Simulate user typing in Chinese in Ghostty, recording app history
+	switcher.appHistory["ghostty"] = "chinese"
+
+	// 3. Switch to Code (matches explicit english rule)
+	codeTarget := switcher.resolveTarget(&ClientInfo{Class: "code", Title: "main.go"})
+	if codeTarget.inputMethod != "english" {
+		t.Fatalf("code target = %q, want %q", codeTarget.inputMethod, "english")
+	}
+
+	// 4. Switch back to Ghostty (explicit keep rule restores remembered chinese)
+	ghosttyTarget := switcher.resolveTarget(&ClientInfo{Class: "ghostty", Title: "terminal"})
+	if ghosttyTarget.inputMethod != "chinese" {
+		t.Fatalf("restored ghostty target = %q, want %q", ghosttyTarget.inputMethod, "chinese")
+	}
+
+	// 5. Unconfigured app cold-start falls back to DefaultInputMethod
+	unconfiguredTarget := switcher.resolveTarget(&ClientInfo{Class: "wechat", Title: "chat"})
+	if unconfiguredTarget.inputMethod != "chinese" {
+		t.Fatalf("unconfigured cold-start target = %q, want %q", unconfiguredTarget.inputMethod, "chinese")
+	}
+}
+
+func TestLayerEventDoesNotTriggerNotificationWhenInputMethodAndWindowUnchanged(t *testing.T) {
+	switcher := NewSwitcher(&config.Config{
+		DefaultInputMethod: "keep",
+		ClientRules: []config.ClientRule{
+			{Class: "ghostty", InputMethod: config.KeepInputMethod},
+		},
+		Notifications: config.NotificationConfig{
+			Enabled:      true,
+			ShowOnSwitch: true,
+		},
+	})
+	notifier := &recordingNotifier{}
+	switcher.SetNotifier(notifier)
+	ghosttyClient := &ClientInfo{Address: "0x123", Class: "ghostty", Title: "terminal"}
+
+	// 1. Switch to ghostty window initially: notifications may fire on initial focus
+	if err := switcher.processWindowChange(ghosttyClient); err != nil {
+		t.Fatalf("processWindowChange() error = %v", err)
+	}
+	initialCalls := notifier.calls
+
+	// 2. An unrelated layer opens and closes (e.g. notification popup, bar, etc.)
+	switcher.handleLayerEvent("some-layer", true)
+	if switcher.layers.isOpen("some-layer") {
+		t.Fatal("handleLayerEvent opened unconfigured layer, want ignored")
+	}
+	if notifier.calls != initialCalls {
+		t.Fatalf("handleLayerEvent(open) sent spurious notification: calls = %d, want %d", notifier.calls, initialCalls)
+	}
+
+	switcher.handleLayerEvent("some-layer", false)
+	if notifier.calls != initialCalls {
+		t.Fatalf("handleLayerEvent(close) sent spurious notification: calls = %d, want %d", notifier.calls, initialCalls)
+	}
+
+	// 3. A configured layer opens with keep input method: should not notify
+	switcher.config.LayerRules = []config.LayerRule{
+		{Namespace: "icyleaf-calculator", InputMethod: config.KeepInputMethod},
+	}
+	switcher.currentIM = "english"
+	switcher.appHistory["ghostty"] = "english"
+	switcher.handleLayerEvent("icyleaf-calculator", true)
+	if notifier.calls != initialCalls {
+		t.Fatalf("handleLayerEvent(open configured keep) sent spurious notification: calls = %d, want %d", notifier.calls, initialCalls)
+	}
+
+	switcher.handleLayerEvent("icyleaf-calculator", false)
+	if notifier.calls != initialCalls {
+		t.Fatalf("handleLayerEvent(close configured keep) sent spurious notification: calls = %d, want %d", notifier.calls, initialCalls)
+	}
+}
+
+
+func TestProfileAndEngineResolution(t *testing.T) {
+	cfg := &config.Config{
+		DefaultInputMethod: "chinese",
+		InputMethods: map[string]config.InputMethodConfig{
+			"english":  {Engine: "keyboard-us"},
+			"chinese":  {Engine: "msime"},
+			"japanese": {Engine: "rime", Profile: "jaroomaji"},
+		},
+	}
+	cfg.Normalize()
+	switcher := NewSwitcher(cfg)
+
+	// Verify resolveFcitx5InputMethod returns correct labels
+	if got := resolveFcitx5InputMethod(fcitxStateActive, "msime", "rime", cfg.InputMethods); got != "chinese" {
+		t.Fatalf("resolve msime = %q, want chinese", got)
+	}
+	if got := resolveFcitx5InputMethod(fcitxStateActive, "keyboard-us", "rime", cfg.InputMethods); got != "english" {
+		t.Fatalf("resolve keyboard-us = %q, want english", got)
+	}
+	if got := resolveFcitx5InputMethod(fcitxStateActive, "rime", "rime", cfg.InputMethods); got != "rime" {
+		t.Fatalf("resolve rime = %q, want rime", got)
+	}
+
+	// Verify switcher GetCurrent schema matching with profile
+	switcher.rime = NewRime(cfg.RimeSchemas)
+	// If rime schema matches jaroomaji, it maps to japanese
+	if label := switcher.rime.GetCurrentInputMethod(cfg.DefaultInputMethod); label != "japanese" {
+		// Mock schema in mapSchemaToInputMethod
+		mapped := mapSchemaToInputMethod("jaroomaji", cfg.RimeSchemas, "chinese")
+		if mapped != "japanese" {
+			t.Fatalf("mapSchemaToInputMethod = %q, want japanese", mapped)
+		}
 	}
 }

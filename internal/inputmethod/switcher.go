@@ -24,6 +24,7 @@ type Switcher struct {
 	fcitx5        *Fcitx5
 	rime          *Rime
 	layers        *layerTracker
+	appHistory    map[string]string
 	notifier      interface {
 		ShowInputMethodSwitch(inputMethod string, clientInfo *config.WindowInfo)
 	}
@@ -71,16 +72,22 @@ type ClientInfo struct {
 }
 
 func NewSwitcher(cfg *config.Config) *Switcher {
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+	cfg.Normalize()
+
 	switcher := &Switcher{
 		currentClient: &ClientInfo{},
 		currentIM:     "",
 		config:        cfg,
 		layers:        newLayerTracker(),
+		appHistory:    make(map[string]string),
 	}
 
 	// Initialize input method handlers
 	if cfg.Fcitx5.Enabled {
-		switcher.fcitx5 = NewFcitx5(cfg.Fcitx5.RimeInputMethod)
+		switcher.fcitx5 = NewFcitx5(cfg.Fcitx5.RimeInputMethod, cfg.InputMethods)
 		switcher.rime = NewRime(cfg.RimeSchemas)
 	}
 
@@ -274,12 +281,32 @@ func (s *Switcher) handleActiveWindowEvent(eventData string) error {
 }
 
 func (s *Switcher) processWindowChange(clientInfo *ClientInfo) error {
+	// Remember the previous client's active input method before changing focus
+	if s.currentClient != nil && s.currentClient.Class != "" {
+		lastIM := s.GetCurrent()
+		if lastIM != "" && lastIM != "unknown" && lastIM != config.KeepInputMethod {
+			s.appHistory[s.currentClient.Class] = lastIM
+		}
+	}
+
 	// Update current client info
 	s.currentClient = clientInfo
 
 	logger.Debugf("Window changed: %s - %s (address: %s)", clientInfo.Class, clientInfo.Title, clientInfo.Address)
 
-	return s.applyResolution(s.resolveTarget(clientInfo), clientInfo)
+	return s.applyResolution(s.resolveTarget(clientInfo), clientInfo, true)
+}
+
+func (s *Switcher) hasLayerRule(namespace string) bool {
+	if s.config == nil {
+		return false
+	}
+	for _, rule := range s.config.LayerRules {
+		if rule.Namespace == namespace {
+			return true
+		}
+	}
+	return false
 }
 
 // handleLayerEvent updates the open-layer bookkeeping and recomputes the target
@@ -291,6 +318,11 @@ func (s *Switcher) handleLayerEvent(namespace string, isOpen bool) {
 	namespace = strings.TrimSpace(namespace)
 	if namespace == "" {
 		logger.Tracef("Empty layer event namespace")
+		return
+	}
+
+	if !s.hasLayerRule(namespace) {
+		logger.Tracef("Layer %s has no configured rule, ignoring", namespace)
 		return
 	}
 
@@ -311,20 +343,55 @@ func (s *Switcher) handleLayerEvent(namespace string, isOpen bool) {
 		s.currentClient = clientInfo
 	}
 
-	if err := s.applyResolution(s.resolveTarget(clientInfo), clientInfo); err != nil {
+	if err := s.applyResolution(s.resolveTarget(clientInfo), clientInfo, false); err != nil {
 		logger.Warningf("Error applying layer rule for %s: %v", namespace, err)
 	}
+}
+
+func (s *Switcher) makeWindowInfo(resolution targetResolution, clientInfo *ClientInfo) *config.WindowInfo {
+	windowInfo := &config.WindowInfo{
+		IsKeep:     resolution.isKeep,
+		IsRestored: resolution.isRestored,
+	}
+	if resolution.layerNamespace != "" {
+		windowInfo.Class = resolution.layerNamespace
+	} else if clientInfo != nil {
+		windowInfo.Class = clientInfo.Class
+		windowInfo.Title = clientInfo.Title
+	}
+	return windowInfo
 }
 
 // applyResolution switches to the resolved input method. The keep target
 // preserves the active input method without querying or invoking the configured
 // input method backend.
-func (s *Switcher) applyResolution(resolution targetResolution, clientInfo *ClientInfo) error {
+func (s *Switcher) applyResolution(resolution targetResolution, clientInfo *ClientInfo, isWindowSwitch bool) error {
 	targetIM := resolution.inputMethod
 
 	if targetIM == config.KeepInputMethod {
 		logger.Debug("Keeping current input method")
+		currentIM := s.currentIM
+		if currentIM == "" {
+			currentIM = s.GetCurrent()
+		}
+		if currentIM != "" && currentIM != "unknown" {
+			if clientInfo != nil && clientInfo.Class != "" {
+				s.appHistory[clientInfo.Class] = currentIM
+			}
+			s.currentIM = currentIM
+
+			// Show notification for the kept input method only on genuine window switch
+			if isWindowSwitch && s.notifier != nil && s.config.Notifications.ShowOnSwitch {
+				windowInfo := s.makeWindowInfo(resolution, clientInfo)
+				s.notifier.ShowInputMethodSwitch(currentIM, windowInfo)
+			}
+		}
 		return nil
+	}
+
+	// Update per-app history for this class
+	if clientInfo != nil && clientInfo.Class != "" {
+		s.appHistory[clientInfo.Class] = targetIM
 	}
 
 	// Get current input method status
@@ -333,6 +400,13 @@ func (s *Switcher) applyResolution(resolution targetResolution, clientInfo *Clie
 	logger.Debugf("Current IM: %s -> Target IM: %s", currentIM, targetIM)
 
 	if currentIM == targetIM || currentIM == "unknown" {
+		if isWindowSwitch && resolution.isKeep && currentIM != "unknown" {
+			// When window is governed by keep, notify user of the active input method on window switch
+			if s.notifier != nil && s.config.Notifications.ShowOnSwitch {
+				windowInfo := s.makeWindowInfo(resolution, clientInfo)
+				s.notifier.ShowInputMethodSwitch(currentIM, windowInfo)
+			}
+		}
 		return nil
 	}
 
@@ -345,13 +419,7 @@ func (s *Switcher) applyResolution(resolution targetResolution, clientInfo *Clie
 
 	// Show notification if notifier is available and enabled
 	if s.notifier != nil && s.config.Notifications.ShowOnSwitch {
-		windowInfo := &config.WindowInfo{}
-		if resolution.layerNamespace != "" {
-			windowInfo.Class = resolution.layerNamespace
-		} else if clientInfo != nil {
-			windowInfo.Class = clientInfo.Class
-			windowInfo.Title = clientInfo.Title
-		}
+		windowInfo := s.makeWindowInfo(resolution, clientInfo)
 		s.notifier.ShowInputMethodSwitch(targetIM, windowInfo)
 	}
 
@@ -481,15 +549,26 @@ func (s *Switcher) getCurrentClient() (*ClientInfo, error) {
 }
 
 func (s *Switcher) GetCurrent() string {
-	if !s.config.Fcitx5.Enabled || s.fcitx5 == nil {
+	if !s.config.Fcitx5.Enabled || s.fcitx5 == nil || !s.fcitx5.IsAvailable() {
+		if s.currentIM != "" {
+			return s.currentIM
+		}
 		return "unknown"
 	}
 
 	// Get current fcitx5 input method
 	currentIM := s.fcitx5.GetCurrent()
 
-	// If it's Rime, get the specific input method based on schema
+	// If it's Rime, get the specific input method based on current schema and profiles
 	if currentIM == "rime" && s.rime != nil {
+		currentSchema := s.rime.GetCurrentSchema()
+		// Search input_methods for an engine="rime" with matching profile
+		for label, imCfg := range s.config.InputMethods {
+			if (imCfg.Engine == "rime" || imCfg.Engine == s.config.Fcitx5.RimeInputMethod) && imCfg.Profile == currentSchema {
+				return label
+			}
+		}
+		// Fallback to legacy RimeSchemas map
 		return s.rime.GetCurrentInputMethod(s.config.DefaultInputMethod)
 	}
 
@@ -503,6 +582,45 @@ func (s *Switcher) GetCurrent() string {
 type targetResolution struct {
 	inputMethod    string
 	layerNamespace string
+	isKeep         bool
+	isRestored     bool
+}
+
+// resolveMatchedRule handles when an explicit client rule matches
+func (s *Switcher) resolveMatchedRule(target, className string) targetResolution {
+	if target != config.KeepInputMethod {
+		return targetResolution{inputMethod: target}
+	}
+
+	// Rule explicitly specified "keep": try restoring remembered input method first
+	if className != "" {
+		if remembered, ok := s.appHistory[className]; ok && remembered != "" && remembered != config.KeepInputMethod {
+			logger.Tracef("Restoring remembered input method for class %s: %s", className, remembered)
+			return targetResolution{inputMethod: remembered, isKeep: true, isRestored: true}
+		}
+	}
+
+	// No history yet: honor the explicit "keep"
+	return targetResolution{inputMethod: config.KeepInputMethod, isKeep: true}
+}
+
+// resolveDefaultRule handles when no client rule matches
+func (s *Switcher) resolveDefaultRule(className string) targetResolution {
+	isDefaultKeep := s.config.DefaultInputMethod == config.KeepInputMethod
+
+	if className != "" {
+		if remembered, ok := s.appHistory[className]; ok && remembered != "" && remembered != config.KeepInputMethod {
+			logger.Tracef("Restoring remembered input method for class %s: %s", className, remembered)
+			return targetResolution{inputMethod: remembered, isKeep: isDefaultKeep, isRestored: isDefaultKeep}
+		}
+	}
+
+	// Cold start fallback to DefaultInputMethod
+	if s.config.DefaultInputMethod != "" {
+		return targetResolution{inputMethod: s.config.DefaultInputMethod, isKeep: isDefaultKeep}
+	}
+
+	return targetResolution{inputMethod: config.KeepInputMethod, isKeep: true}
 }
 
 func (s *Switcher) resolveTarget(clientInfo *ClientInfo) targetResolution {
@@ -510,7 +628,11 @@ func (s *Switcher) resolveTarget(clientInfo *ClientInfo) targetResolution {
 	// the surface the user is currently interacting with, even though Hyprland
 	// still reports the window underneath as the active one.
 	if namespace, target, ok := s.getLayerTargetInputMethod(); ok {
-		return targetResolution{inputMethod: target, layerNamespace: namespace}
+		return targetResolution{
+			inputMethod:    target,
+			layerNamespace: namespace,
+			isKeep:         target == config.KeepInputMethod,
+		}
 	}
 
 	if clientInfo == nil {
@@ -532,18 +654,18 @@ func (s *Switcher) resolveTarget(clientInfo *ClientInfo) targetResolution {
 		// If title is empty or not specified, class match is enough
 		if rule.Title == "" {
 			logger.Tracef("Matched rule: class=%s -> %s", rule.Class, rule.InputMethod)
-			return targetResolution{inputMethod: rule.InputMethod}
+			return s.resolveMatchedRule(rule.InputMethod, className)
 		}
 
 		// If title is specified, both class and title must match
 		if s.matchPattern(rule.Title, title) {
 			logger.Tracef("Matched rule: class=%s, title=%s -> %s", rule.Class, rule.Title, rule.InputMethod)
-			return targetResolution{inputMethod: rule.InputMethod}
+			return s.resolveMatchedRule(rule.InputMethod, className)
 		}
 	}
 
-	logger.Tracef("No matching rule found, using default: %s", s.config.DefaultInputMethod)
-	return targetResolution{inputMethod: s.config.DefaultInputMethod}
+	logger.Tracef("No matching rule found, evaluating default: %s", s.config.DefaultInputMethod)
+	return s.resolveDefaultRule(className)
 }
 
 // getLayerTargetInputMethod returns the namespace and input method dictated by
@@ -609,14 +731,20 @@ func (s *Switcher) Switch(targetMethod string) error {
 	logger.Debugf("Switching to input method: %s", targetMethod)
 
 	var err error
+	imCfg, hasIM := s.config.InputMethods[targetMethod]
+	engine := imCfg.Engine
+
 	if targetMethod == "english" {
-		// English is the fcitx5 inactive state: deactivating the controller
-		// falls back to the keyboard layout. The controller keeps reporting the
-		// configured input method name while inactive, so GetCurrent relies on
-		// the controller state rather than the name to tell the two apart.
-		err = s.fcitx5.SwitchToEnglish()
+		if hasIM && engine != "" {
+			err = s.fcitx5.SwitchToIM(engine)
+		} else {
+			err = s.fcitx5.SwitchToEnglish()
+		}
+	} else if hasIM && engine != s.config.Fcitx5.RimeInputMethod && engine != "rime" {
+		// Target is a direct non-Rime fcitx5 input method (e.g. msime)
+		err = s.fcitx5.SwitchToIM(engine)
 	} else {
-		// For non-English methods, switch to Rime first, then set schema
+		// For Rime, switch to Rime first, then set schema/profile
 		if err = s.fcitx5.SwitchToRime(); err != nil {
 			return fmt.Errorf("failed to switch to Rime: %w", err)
 		}
@@ -624,9 +752,13 @@ func (s *Switcher) Switch(targetMethod string) error {
 		// Wait a bit for the switch to take effect
 		time.Sleep(100 * time.Millisecond)
 
-		// Switch to specific schema if Rime is available
+		// Switch to specific schema/profile if Rime is available
 		if s.rime != nil {
-			err = s.rime.SwitchSchema(targetMethod)
+			profile := imCfg.Profile
+			if profile == "" {
+				profile = targetMethod
+			}
+			err = s.rime.SwitchSchema(profile)
 		}
 	}
 
