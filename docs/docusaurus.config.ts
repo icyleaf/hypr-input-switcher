@@ -31,6 +31,14 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/icyleaf/hypr-input-switcher/tree/main/docs/',
         },
+        blog: {
+          showReadingTime: true,
+          feedOptions: {
+            type: ['rss', 'atom'],
+            xslt: true,
+          },
+          editUrl: 'https://github.com/icyleaf/hypr-input-switcher/tree/main/docs/',
+        },
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -53,6 +61,11 @@ const config: Config = {
           sidebarId: 'tutorialSidebar',
           position: 'left',
           label: 'Docs',
+        },
+        {
+          to: '/blog',
+          label: 'Blog',
+          position: 'left',
         },
         {
           href: 'https://github.com/icyleaf/hypr-input-switcher',
@@ -97,6 +110,10 @@ const config: Config = {
         {
           title: 'More',
           items: [
+            {
+              label: 'Blog',
+              to: '/blog',
+            },
             {
               label: 'GitHub',
               href: 'https://github.com/icyleaf/hypr-input-switcher',
