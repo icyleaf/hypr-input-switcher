@@ -339,6 +339,28 @@ func (s *Switcher) applyResolution(resolution targetResolution, clientInfo *Clie
 
 	if targetIM == config.KeepInputMethod {
 		logger.Debug("Keeping current input method")
+		currentIM := s.currentIM
+		if currentIM == "" {
+			currentIM = s.GetCurrent()
+		}
+		if currentIM != "" && currentIM != "unknown" {
+			if clientInfo != nil && clientInfo.Class != "" {
+				s.appHistory[clientInfo.Class] = currentIM
+			}
+			s.currentIM = currentIM
+
+			// Show notification for the kept input method
+			if s.notifier != nil && s.config.Notifications.ShowOnSwitch {
+				windowInfo := &config.WindowInfo{}
+				if resolution.layerNamespace != "" {
+					windowInfo.Class = resolution.layerNamespace
+				} else if clientInfo != nil {
+					windowInfo.Class = clientInfo.Class
+					windowInfo.Title = clientInfo.Title
+				}
+				s.notifier.ShowInputMethodSwitch(currentIM, windowInfo)
+			}
+		}
 		return nil
 	}
 
@@ -353,6 +375,19 @@ func (s *Switcher) applyResolution(resolution targetResolution, clientInfo *Clie
 	logger.Debugf("Current IM: %s -> Target IM: %s", currentIM, targetIM)
 
 	if currentIM == targetIM || currentIM == "unknown" {
+		if resolution.isKeep && currentIM != "unknown" {
+			// When window is governed by keep, notify user of the active input method
+			if s.notifier != nil && s.config.Notifications.ShowOnSwitch {
+				windowInfo := &config.WindowInfo{}
+				if resolution.layerNamespace != "" {
+					windowInfo.Class = resolution.layerNamespace
+				} else if clientInfo != nil {
+					windowInfo.Class = clientInfo.Class
+					windowInfo.Title = clientInfo.Title
+				}
+				s.notifier.ShowInputMethodSwitch(currentIM, windowInfo)
+			}
+		}
 		return nil
 	}
 
@@ -501,7 +536,10 @@ func (s *Switcher) getCurrentClient() (*ClientInfo, error) {
 }
 
 func (s *Switcher) GetCurrent() string {
-	if !s.config.Fcitx5.Enabled || s.fcitx5 == nil {
+	if !s.config.Fcitx5.Enabled || s.fcitx5 == nil || !s.fcitx5.IsAvailable() {
+		if s.currentIM != "" {
+			return s.currentIM
+		}
 		return "unknown"
 	}
 
@@ -531,6 +569,7 @@ func (s *Switcher) GetCurrent() string {
 type targetResolution struct {
 	inputMethod    string
 	layerNamespace string
+	isKeep         bool
 }
 
 // resolveMatchedRule handles when an explicit client rule matches
@@ -543,29 +582,31 @@ func (s *Switcher) resolveMatchedRule(target, className string) targetResolution
 	if className != "" {
 		if remembered, ok := s.appHistory[className]; ok && remembered != "" && remembered != config.KeepInputMethod {
 			logger.Tracef("Restoring remembered input method for class %s: %s", className, remembered)
-			return targetResolution{inputMethod: remembered}
+			return targetResolution{inputMethod: remembered, isKeep: true}
 		}
 	}
 
 	// No history yet: honor the explicit "keep"
-	return targetResolution{inputMethod: config.KeepInputMethod}
+	return targetResolution{inputMethod: config.KeepInputMethod, isKeep: true}
 }
 
 // resolveDefaultRule handles when no client rule matches
 func (s *Switcher) resolveDefaultRule(className string) targetResolution {
+	isDefaultKeep := s.config.DefaultInputMethod == config.KeepInputMethod
+
 	if className != "" {
 		if remembered, ok := s.appHistory[className]; ok && remembered != "" && remembered != config.KeepInputMethod {
 			logger.Tracef("Restoring remembered input method for class %s: %s", className, remembered)
-			return targetResolution{inputMethod: remembered}
+			return targetResolution{inputMethod: remembered, isKeep: isDefaultKeep}
 		}
 	}
 
 	// Cold start fallback to DefaultInputMethod
 	if s.config.DefaultInputMethod != "" {
-		return targetResolution{inputMethod: s.config.DefaultInputMethod}
+		return targetResolution{inputMethod: s.config.DefaultInputMethod, isKeep: isDefaultKeep}
 	}
 
-	return targetResolution{inputMethod: config.KeepInputMethod}
+	return targetResolution{inputMethod: config.KeepInputMethod, isKeep: true}
 }
 
 func (s *Switcher) resolveTarget(clientInfo *ClientInfo) targetResolution {
@@ -573,7 +614,11 @@ func (s *Switcher) resolveTarget(clientInfo *ClientInfo) targetResolution {
 	// the surface the user is currently interacting with, even though Hyprland
 	// still reports the window underneath as the active one.
 	if namespace, target, ok := s.getLayerTargetInputMethod(); ok {
-		return targetResolution{inputMethod: target, layerNamespace: namespace}
+		return targetResolution{
+			inputMethod:    target,
+			layerNamespace: namespace,
+			isKeep:         target == config.KeepInputMethod,
+		}
 	}
 
 	if clientInfo == nil {

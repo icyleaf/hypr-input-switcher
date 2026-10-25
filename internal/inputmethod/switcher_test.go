@@ -272,8 +272,8 @@ func TestProcessWindowChangeKeepsCurrentInputMethod(t *testing.T) {
 			if switcher.currentIM != "chinese" {
 				t.Fatalf("currentIM = %q, want unchanged value %q", switcher.currentIM, "chinese")
 			}
-			if notifier.calls != 0 {
-				t.Fatalf("notification calls = %d, want 0", notifier.calls)
+			if notifier.calls != 1 {
+				t.Fatalf("notification calls = %d, want 1", notifier.calls)
 			}
 		})
 	}
