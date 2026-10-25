@@ -66,7 +66,7 @@ release:
   github:
     owner: icyleaf
     name: hypr-input-switcher
-  name_template: "{{.ProjectName}} {{.Version}}"
+  name_template: "{{.Version}}"
   prerelease: auto
 
 snapshot:

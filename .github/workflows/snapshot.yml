@@ -64,7 +64,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: snapshot
-          name: "hypr-input-switcher ${{ steps.version.outputs.version }}"
+          name: "${{ steps.version.outputs.version }}"
           body: |
             🔄 **Snapshot Release**
 
